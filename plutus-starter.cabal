@@ -61,6 +61,7 @@ library
       lens -any,
       cardano-api,
       serialise
+     
     hs-source-dirs: src examples/src
 
 --6test-suite plutus-example-projects-test
