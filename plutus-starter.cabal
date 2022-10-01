@@ -60,7 +60,9 @@ library
       text -any,
       lens -any,
       cardano-api,
-      serialise
+      serialise,
+      hex
+
      
     hs-source-dirs: src examples/src
 

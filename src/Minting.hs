@@ -18,6 +18,8 @@ import           Codec.Serialise
 import           Control.Monad          hiding (fmap)
 import           Data.Aeson             (ToJSON, FromJSON)
 import           Data.Text              (Text)
+import           Data.Hex
+import           Data.String            (IsString (..))
 import           Data.Void              (Void)
 import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.ByteString.Short  as SBS
@@ -34,7 +36,8 @@ import qualified Plutus.Script.Utils.V1.Typed.Scripts as PSU.V1
 import qualified Plutus.V1.Ledger.Api                 as PlutusV1
 import qualified Plutus.V1.Ledger.Scripts             as LedgerV1
 import qualified Plutus.V1.Ledger.Contexts            as PlutusV1
-import           Plutus.V1.Ledger.Time                  
+import           Plutus.V1.Ledger.Time  (POSIXTime (POSIXTime, getPOSIXTime), POSIXTimeRange)
+import           Plutus.V1.Ledger.Bytes (getLedgerBytes)                
 import           Playground.Contract    (printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema)
 import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
 import           Playground.Types       (KnownCurrency (..))
@@ -114,14 +117,18 @@ calculateYacada ada = case ada of
     _       ->  0
 
 
-giveReferalNFTName :: Integer -> Integer -> String 
-giveReferalNFTName ada time = case ada of 
-        200     ->  "YACADA_REFERRAL_L01_" ++ show(time) -- getPOSIXTime
-        400     ->  "YACADA_REFERRAL_L02_" ++ show(time)
-        600     ->  "YACADA_REFERRAL_L03_" ++ show(time)
-        800     ->  "YACADA_REFERRAL_L04_" ++ show(time)
-        1000    ->  "YACADA_REFERRAL_L05_" ++ show(time)
-   
+giveReferralNFTName :: Integer -> POSIXTime -> TokenName 
+giveReferralNFTName ada time = case ada of 
+        200     ->  toTokenName ( "YACADA_REFERRAL_L01_"++ show(getPOSIXTime time)) -- getPOSIXTime
+        400     ->  toTokenName ("YACADA_REFERRAL_L02_" ++  show(getPOSIXTime time))
+        600     ->  toTokenName ("YACADA_REFERRAL_L03_" ++  show(getPOSIXTime time))
+        800     ->  toTokenName ("YACADA_REFERRAL_L04_" ++  show(getPOSIXTime time))
+        1000    ->  toTokenName ("YACADA_REFERRAL_L05_" ++  show(getPOSIXTime time))
+        _       ->  toTokenName ("Error")
+
+toTokenName :: String -> TokenName
+toTokenName tn = TokenName { unTokenName = getLedgerBytes $ fromString $ hex tn }
+
 -- OFF CHAIN    
 data MintParams = MintParams
     {  
@@ -141,8 +148,10 @@ yacadaName = "YACADA_TOKEN"
 
 mint :: MintParams -> Contract w FreeSchema Text ()
 mint mp = do 
-        let yacada          = Value.singleton yacadaSymbol yacadaName (calculateYacada $ mpAdaAmount mp)
-            yacadaNft       = Value.singleton yacadaNFTSymbol  "NFT" 1 --(giveReferalNFTName (mpAdaAmount mp) 213122315) 1
+        now   <- currentTime
+        let 
+            yacada          = Value.singleton yacadaSymbol yacadaName (calculateYacada $ mpAdaAmount mp)
+            yacadaNft       = Value.singleton yacadaNFTSymbol (giveReferralNFTName (mpAdaAmount mp) now)  1
             adas            = Ada.lovelaceValueOf $ mpAdaAmount mp            
             lookups         = Constraints.mintingPolicy policy <> Constraints.mintingPolicy levelPolicy
             destinations    = paymentTo mp
@@ -161,12 +170,13 @@ mintWithFriend mp = do
         let  destinations = paymentTo mp
              destinationAdress = pubKeyHashAddress (referral destinations) Nothing
         utxos   <- utxosAt destinationAdress
+        now   <- currentTime
         let 
+            
             yacada          = Value.singleton yacadaSymbol yacadaName (calculateYacada $ mpAdaAmount mp)
-            yacadaNft       = Value.singleton yacadaNFTSymbol  (TokenName "NFT") 1
+            yacadaNft       = Value.singleton yacadaNFTSymbol  (giveReferralNFTName (mpAdaAmount mp) now)  1
             adas            = Ada.lovelaceValueOf $ mpAdaAmount mp            
             lookups         = Constraints.mintingPolicy policy <> Constraints.mintingPolicy levelPolicy
-            
             payment         = Constraints.mustPayToPubKey (treasury destinations) adas
             mintYacada      = Constraints.mustMintValue yacada <> Constraints.mustMintValue yacadaNft                          
             tx              = mintYacada
