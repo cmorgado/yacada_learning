@@ -3,7 +3,7 @@ name:               plutus-starter
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
--- synopsis:
+-- synopsis: 
 
 -- A longer description of the package.
 -- description:
@@ -41,7 +41,10 @@ common lang
 library
     import: lang
     exposed-modules:
-      Minting
+      Minting,
+      YacadaNFT,
+      YacadaCoin,
+      Common.Utils
     build-depends:
       base >= 4.9 && < 5,
       aeson -any,
@@ -64,7 +67,7 @@ library
       hex
 
      
-    hs-source-dirs: src examples/src
+    hs-source-dirs: src 
 
 --6test-suite plutus-example-projects-test
 --6  import: lang

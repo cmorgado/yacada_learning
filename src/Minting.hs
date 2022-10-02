@@ -46,88 +46,12 @@ import           Text.Printf            (printf)
 import           Wallet.Emulator.Wallet
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
 
-
-
+import qualified Common.Utils           as U
+import           YacadaNFT
+import           YacadaCoin
 --ON-CHAIN
 
-{-# INLINABLE yacadaLevelPolicy #-}
-yacadaLevelPolicy ::  () -> PlutusV1.ScriptContext -> Bool
-yacadaLevelPolicy _ ctx = True
 
-levelPolicy :: Scripts.MintingPolicy
-levelPolicy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntypedMintingPolicy yacadaLevelPolicy ||]) 
-
-{-# INLINABLE yacadaPolicy #-}
-yacadaPolicy ::  () -> PlutusV1.ScriptContext -> Bool
-yacadaPolicy _ ctx = traceIfFalse "Just" signedByBeneficiary
-
-    where
-        signedByBeneficiary :: Bool
-        signedByBeneficiary = True
-
-policy :: Scripts.MintingPolicy
-policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntypedMintingPolicy yacadaPolicy ||]) 
-                                 
-                                      
-
--- Yacada Token
-yacadaSymbol :: CurrencySymbol
-yacadaSymbol = Scripts.scriptCurrencySymbol policy
-
-yacadaScriptV1 :: PlutusV1.Script
-yacadaScriptV1 = PlutusV1.unMintingPolicyScript policy
-
-yacadaScriptSBSV1 :: SBS.ShortByteString
-yacadaScriptSBSV1 = SBS.toShort . LBS.toStrict $ serialise yacadaScriptV1
-             
-yacadaSerialisedScriptV1 :: PlutusScript PlutusScriptV1
-yacadaSerialisedScriptV1 = PlutusScriptSerialised yacadaScriptSBSV1
-
-yacadaWriteSerialisedScriptV1 :: IO ()
-yacadaWriteSerialisedScriptV1 = do
-                        void $ writeFileTextEnvelope "yacada-policy-V1.plutus" Nothing yacadaSerialisedScriptV1
-
--- Yacada NFT
-yacadaNFTSymbol :: CurrencySymbol
-yacadaNFTSymbol = Scripts.scriptCurrencySymbol levelPolicy
-
-yacadaNFTScriptV1 :: PlutusV1.Script
-yacadaNFTScriptV1 = PlutusV1.unMintingPolicyScript levelPolicy
-
-yacadaNFTScriptSBSV1 :: SBS.ShortByteString
-yacadaNFTScriptSBSV1 = SBS.toShort . LBS.toStrict $ serialise yacadaNFTScriptV1
-             
-yacadaNFTSerialisedScriptV1 :: PlutusScript PlutusScriptV1
-yacadaNFTSerialisedScriptV1 = PlutusScriptSerialised yacadaNFTScriptSBSV1
-
-yacadaNFTWriteSerialisedScriptV1 :: IO ()
-yacadaNFTWriteSerialisedScriptV1 = do
-                        void $ writeFileTextEnvelope "yacadaLevelNFT-policy-V1.plutus" Nothing yacadaNFTSerialisedScriptV1
-
-
--- caculation of yacada and naming the NFT
-
-calculateYacada :: Integer -> Integer
-calculateYacada ada = case ada of 
-    200     ->  1000
-    400     ->  2000
-    600     ->  3000
-    800     ->  4000
-    1000    ->  5000
-    _       ->  0
-
-
-giveReferralNFTName :: Integer -> POSIXTime -> TokenName 
-giveReferralNFTName ada time = case ada of 
-        200     ->  toTokenName ( "YACADA_REFERRAL_L01_"++ show(getPOSIXTime time)) -- getPOSIXTime
-        400     ->  toTokenName ("YACADA_REFERRAL_L02_" ++  show(getPOSIXTime time))
-        600     ->  toTokenName ("YACADA_REFERRAL_L03_" ++  show(getPOSIXTime time))
-        800     ->  toTokenName ("YACADA_REFERRAL_L04_" ++  show(getPOSIXTime time))
-        1000    ->  toTokenName ("YACADA_REFERRAL_L05_" ++  show(getPOSIXTime time))
-        _       ->  toTokenName ("Error")
-
-toTokenName :: String -> TokenName
-toTokenName tn = TokenName { unTokenName = getLedgerBytes $ fromString $ hex tn }
 
 -- OFF CHAIN    
 data MintParams = MintParams
@@ -143,15 +67,15 @@ data AdaDestinations = AdaDestinations
         referral :: !PaymentPubKeyHash
     } deriving (Generic, ToJSON, FromJSON, ToSchema) 
 
-yacadaName :: TokenName
-yacadaName = "YACADA_TOKEN"
+
+
 
 mint :: MintParams -> Contract w FreeSchema Text ()
 mint mp = do 
         now   <- currentTime
         let 
-            yacada          = Value.singleton yacadaSymbol yacadaName (calculateYacada $ mpAdaAmount mp)
-            yacadaNft       = Value.singleton yacadaNFTSymbol (giveReferralNFTName (mpAdaAmount mp) now)  1
+            yacada          = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)
+            yacadaNft       = Value.singleton yacadaNFTSymbol (U.giveReferralNFTName (mpAdaAmount mp) now)  1
             adas            = Ada.lovelaceValueOf $ mpAdaAmount mp            
             lookups         = Constraints.mintingPolicy policy <> Constraints.mintingPolicy levelPolicy
             destinations    = paymentTo mp
@@ -173,8 +97,8 @@ mintWithFriend mp = do
         now   <- currentTime
         let 
             
-            yacada          = Value.singleton yacadaSymbol yacadaName (calculateYacada $ mpAdaAmount mp)
-            yacadaNft       = Value.singleton yacadaNFTSymbol  (giveReferralNFTName (mpAdaAmount mp) now)  1
+            yacada          = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)
+            yacadaNft       = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  1
             adas            = Ada.lovelaceValueOf $ mpAdaAmount mp            
             lookups         = Constraints.mintingPolicy policy <> Constraints.mintingPolicy levelPolicy
             payment         = Constraints.mustPayToPubKey (treasury destinations) adas
