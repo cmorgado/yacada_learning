@@ -51,11 +51,18 @@ import           Prelude                (IO, Show (..), String, Semigroup (..))
 import           Text.Printf            (printf)
 import           Wallet.Emulator.Wallet
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
-
+import           Common.Utils           as U
 
 {-# INLINABLE yacadaLevelPolicy #-}
 yacadaLevelPolicy ::  () -> PlutusV1.ScriptContext -> Bool
-yacadaLevelPolicy _ ctx = True
+yacadaLevelPolicy _ ctx = traceIfFalse "LevelPolicy" allOk
+    where
+        allOk :: Bool
+        allOk = True 
+        
+        info :: TxInfo
+        info = scriptContextTxInfo ctx
+
 
 levelPolicy :: Scripts.MintingPolicy
 levelPolicy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntypedMintingPolicy yacadaLevelPolicy ||]) 

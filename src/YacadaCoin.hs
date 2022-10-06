@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveAnyClass      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -7,9 +6,13 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module YacadaCoin 
     (
@@ -51,15 +54,15 @@ import           Prelude                (IO, Show (..), String, Semigroup (..))
 import           Text.Printf            (printf)
 import           Wallet.Emulator.Wallet
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
-
+import qualified Common.Utils           as U
 
 {-# INLINABLE yacadaPolicy #-}
 yacadaPolicy ::  () -> PlutusV1.ScriptContext -> Bool
-yacadaPolicy _ ctx = traceIfFalse "Just" signedByBeneficiary
-
+yacadaPolicy _ ctx = traceIfFalse "same symbol?" allOk
     where
-        signedByBeneficiary :: Bool
-        signedByBeneficiary = True
+        allOk :: Bool
+        allOk = True 
+
 
 policy :: Scripts.MintingPolicy
 policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntypedMintingPolicy yacadaPolicy ||])

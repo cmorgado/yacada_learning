@@ -41,7 +41,7 @@ common lang
 library
     import: lang
     exposed-modules:
-      Minting,
+      Trace,
       YacadaNFT,
       YacadaCoin,
       Common.Utils
