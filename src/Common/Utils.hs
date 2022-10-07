@@ -11,10 +11,13 @@ module Common.Utils (
     referralAda,
     toTokenName,
     referralLevel,
+    upgradeReferralNFTName,
     info,
     hasUTxO,
     mintFlattened,
-    valuePaidToAddress
+    valuePaidToAddress,
+ 
+ 
 
  ) where
 
@@ -28,7 +31,9 @@ import              Plutus.V1.Ledger.Time  (POSIXTime (POSIXTime, getPOSIXTime),
 import              Plutus.V1.Ledger.Bytes (getLedgerBytes)
 import              Data.Hex
 import              Data.String            (IsString (..))
-        
+import              GHC.Generics           (Generic)
+
+
 
 {-# INLINABLE calculateYacada #-} -- calculates the yacada minted from the amount of Ada sent (amount sent is a fix set of values) -- can inprove via custom data?
 calculateYacada :: Integer -> Integer
@@ -65,6 +70,17 @@ giveReferralNFTName ada time = case ada of
         800_000_000     ->  toTokenName ("20_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
         1_000_000_000    ->  toTokenName ("25_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
         _       ->  toTokenName ("00")
+
+{-# INLINABLE upgradeReferralNFTName #-}
+upgradeReferralNFTName :: Integer -> POSIXTime -> TokenName
+upgradeReferralNFTName up time = do
+    if (up<50)
+        then toTokenName ("01_YACADA_REFERRAL_"++ show(getPOSIXTime time)) --
+    else
+        toTokenName ("00_YACADA_REFERRAL_"++ show(getPOSIXTime time))  
+      
+      
+      
 
 {-# INLINABLE yacadaName #-}
 yacadaName :: TokenName

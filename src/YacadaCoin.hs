@@ -32,37 +32,66 @@ import           Data.String            (IsString (..))
 import           Data.Void              (Void)
 import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.ByteString.Short  as SBS
-import           GHC.Generics           (Generic)
-import           Plutus.Contract        as Contract
-import           Plutus.Trace.Emulator  as Emulator
 import qualified PlutusTx
+import           PlutusTx.Builtins.Class
 import           Ledger                 hiding (mint, singleton)
 import           Ledger.Constraints     as Constraints
 import           Ledger.Value           as Value
 import           Ledger.Ada             as Ada
+import           Ledger.Typed.Scripts.Validators
 import qualified Plutus.Script.Utils.V1.Scripts  as Scripts
 import qualified Plutus.Script.Utils.V1.Typed.Scripts as PSU.V1
 import qualified Plutus.V1.Ledger.Api                 as PlutusV1
 import qualified Plutus.V1.Ledger.Scripts             as LedgerV1
 import qualified Plutus.V1.Ledger.Contexts            as PlutusV1
-import           Plutus.V1.Ledger.Time  (POSIXTime (POSIXTime, getPOSIXTime), POSIXTimeRange)
-import           Plutus.V1.Ledger.Bytes (getLedgerBytes)                
-import           Playground.Contract    (printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema)
-import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
-import           Playground.Types       (KnownCurrency (..))
+import           Plutus.V1.Ledger.Bytes (getLedgerBytes)
+import           Plutus.Script.Utils.V1.Scripts  
 import           Prelude                (IO, Show (..), String, Semigroup (..))
-import           Text.Printf            (printf)
 import           Wallet.Emulator.Wallet
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
 import qualified Common.Utils           as U
 
+
 {-# INLINABLE yacadaPolicy #-}
 yacadaPolicy ::  () -> PlutusV1.ScriptContext -> Bool
-yacadaPolicy _ ctx = traceIfFalse "same symbol?" allOk
-    where
+yacadaPolicy _ ctx  =  
+    traceIfFalse "not ok" True
+       
+    where        
         allOk :: Bool
-        allOk = True 
+        allOk = True
+        
+        info :: TxInfo
+        info = scriptContextTxInfo ctx
 
+        minted :: Value
+        minted = txInfoMint info
+
+        mintedValue :: [(CurrencySymbol, TokenName, Integer)]
+        mintedValue = flattenValue (minted)
+
+        -- ?? Paied amount ?? --
+        -- ?? amount of yacada == minted amount ??
+        -- ?? name of yacadaNFT == level given by amount of ADA && quantity == 1
+        -- ?? did the treasury account received the ADA
+        -- ?? did the referral NFT name correct quantity = 1??
+        -- ?? did the referral received ADA and new NFT
+      
+      
+      
+      
+      
+      
+--
+       
+       
+       
+       
+       
+       
+       
+        
+      
 
 policy :: Scripts.MintingPolicy
 policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntypedMintingPolicy yacadaPolicy ||])
@@ -70,6 +99,7 @@ policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntyped
                                       
 
 -- Yacada Token
+{-# INLINABLE yacadaSymbol #-}
 yacadaSymbol :: CurrencySymbol
 yacadaSymbol = Scripts.scriptCurrencySymbol policy
 

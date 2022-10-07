@@ -40,10 +40,6 @@ import           YacadaNFT
 import           YacadaCoin
 
     
-
-
-
--- OFF CHAIN    
 data MintParams = MintParams
     {  
         paymentTo :: !AdaDestinations ,
@@ -55,6 +51,9 @@ data AdaDestinations = AdaDestinations
         treasury :: !PaymentPubKeyHash,
         referral :: !PaymentPubKeyHash
     } deriving (Generic, ToJSON, FromJSON, ToSchema) 
+
+
+-- OFF CHAIN    
 
 fst' :: (a,b,c) -> a
 fst' (x,_,_) = x
@@ -91,47 +90,49 @@ extractLevel (x:xs) i = do
     let tn = toString tokName
     if currSym == yacadaNFTSymbol        
         then            
-            extractLevel [] $ U.referralLevel $ snd' x 
+            extractLevel xs $ ( U.referralLevel $ snd' x) + i
     else
-        extractLevel xs 0
+        extractLevel xs i
 
 -- ------------------------------------------------------------------------------------------------------------------
 mintWithFriend :: MintParams -> Contract w FreeSchema Text ()
 mintWithFriend mp = do 
-        let  destinations = paymentTo mp
-             referralAddr = pubKeyHashAddress (referral destinations) Nothing
-             treasuryAddr = pubKeyHashAddress (treasury destinations) Nothing
-        now             <- currentTime
-        utxosTreasury   <- utxosAt treasuryAddr
-        utxosReferral   <- utxosAt referralAddr         
+        let  destinations       = paymentTo mp
+             referralAddr       = pubKeyHashAddress (referral destinations) Nothing
+        now                     <- currentTime
+        utxosReferral           <- utxosAt referralAddr         
         let
-            vals =  _ciTxOutValue <$> (snd <$> Map.toList utxosReferral)
-            vals1 =  _ciTxOutValue <$> (snd <$> Map.toList utxosTreasury)       
-            referralOk =  extractLevel (getTot vals []) 0
+            vals                =  (_ciTxOutValue <$> (snd <$> Map.toList utxosReferral))            
+            referralOk          =  extractLevel (getTot vals []) 0
 
-            yacada          = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)
-            yacadaNft       = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  1
-            treasuryAdas    = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) referralOk 
-            referralAdas    = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
-            lookups         = Constraints.mintingPolicy policy 
-                                <> Constraints.mintingPolicy levelPolicy
-            payment         = Constraints.mustPayToPubKey (treasury destinations) treasuryAdas 
-                                <> Constraints.mustPayToPubKey (referral destinations) referralAdas
-            mint            = Constraints.mustMintValue yacada 
-                                <> Constraints.mustMintValue yacadaNft                          
-            tx              = mint <> payment
+            yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp) -- coins for customer
+            yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  1 -- NFT for is base referral
+            yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.upgradeReferralNFTName (referralOk+1) now)  1 -- upgrade for the referral account
+            treasuryAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) referralOk 
+            referralAdas        = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
+            lookups             = Constraints.mintingPolicy policy 
+                                    <> Constraints.mintingPolicy levelPolicy 
+            payment             = Constraints.mustPayToPubKey (treasury destinations) treasuryAdas 
+                                    <> Constraints.mustPayToPubKey (referral destinations) (referralAdas <>  yacadaReferralNft)                             
+            mint                = Constraints.mustMintValue (yacada <> yacadaNft <> yacadaReferralNft)                              
+            tx                  = mint <> payment
                                                              
+   
+   
+       
+        logInfo @String $ printf "--------------------Referral---------------------------\n"
+        logInfo @String $ printf "---------- %s ----------" (show referralAddr)
+        logInfo @String $ printf "---------- level %s ----------" (show referralOk)
+        logInfo @String $ printf "---------- vals %s ----------" $ show (getTot vals [])
+        logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
+
+        --logInfo @String $ printf "| VALUES: '%s' |\n"  (show $ getTot vals  []) --(show $ PlutusTx.AssocMap.keys $ Data.Maybe.fromJust $ PlutusTx.AssocMap.lookup "" (Plutus.V1.Ledger.Value.getValue $ head vals))
+        logInfo @String $ printf "------------------------------------------------------"
         ledgerTx <- submitTxConstraintsWith @Void lookups tx
         void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
-        logInfo @String $ printf "--------------------Referral---------------------------\n"
-        logInfo @String $ printf "---------- level %s ----------" (show referralOk)
-        logInfo @String $ printf "---------- %s ----------" (show referralAddr)
-        logInfo @String $ printf "| VALUES: '%s' |\n"  (show $ getTot vals  []) --(show $ PlutusTx.AssocMap.keys $ Data.Maybe.fromJust $ PlutusTx.AssocMap.lookup "" (Plutus.V1.Ledger.Value.getValue $ head vals))
         logInfo @String $ printf "------------------------------------------------------"
- 
-        
-        logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
-        logInfo @String $ printf "------------------------------------------------------"
+        --logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
+        --logInfo @String $ printf "------------------------------------------------------"
 -----------------------------------------------------------------------------------------------------------------------
 type FreeSchema = -- Endpoint "mint" MintParams .\/  
              Endpoint "mintWithFriend" MintParams 
@@ -139,7 +140,6 @@ type FreeSchema = -- Endpoint "mint" MintParams .\/
 endpoints :: Contract () FreeSchema Text ()
 endpoints = awaitPromise (mintWithFriend') >> endpoints
   where
-   -- mint'               = endpoint @"mint" mint
     mintWithFriend'    = endpoint @"mintWithFriend" mintWithFriend
 
 
@@ -156,10 +156,12 @@ test:: IO ()
 test= do
     
     let 
-        dist = Map.fromList [ (wallet 1, Ada.lovelaceValueOf 1_000_000_000) -- treasury
+        dist = Map.fromList [ (wallet 1, 
+                                Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 200_000_000 100000000001)  1
+                                <> Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
                             , (wallet 2, Ada.lovelaceValueOf 1_000_000_000)
-                            , (wallet 3, Ada.lovelaceValueOf 200_000_000 <>
-                                Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 600_000_000 1664799944)  1)                                                                      
+                            , (wallet 3, Ada.lovelaceValueOf 200_000_000 
+                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 600_000_000 100000000002)  1)                                                                      
                             , (wallet 4, Ada.lovelaceValueOf 1_000_000_000)
                             , (wallet 5, Ada.lovelaceValueOf 2_000_000_000)
                             , (wallet 6, Ada.lovelaceValueOf 1_000_000_000)
@@ -183,28 +185,37 @@ test= do
                                                     mpAdaAmount = 200_000_000
                                                    
                                                     }
-                            void $ Emulator.waitNSlots 1
-                            callEndpoint @"mintWithFriend" h4 $ MintParams -- referral is not valid no funds should be sent!
-                                            {                                             
-                                                paymentTo = AdaDestinations 
-                                                    { 
-                                                    treasury = (pkh 1) , 
-                                                    referral=  (pkh 6)
-                                                    },
-                                                mpAdaAmount = 400_000_000
-                                              
-                                            }
-                            void $ Emulator.waitNSlots 1
-                            callEndpoint @"mintWithFriend" h5 $ MintParams
-                                            {                                    
-                                                paymentTo = AdaDestinations 
-                                                    { 
-                                                    treasury = (pkh 1) , 
-                                                    referral=  (pkh 4)
-                                                    },
-                                                mpAdaAmount = 1_000_000_000
-
-                                            }
+                        --    void $ Emulator.waitNSlots 10
+                        --    callEndpoint @"mintWithFriend" h4 $ MintParams -- referral is not valid no funds should be sent!
+                        --                  {                                             
+                        --                      paymentTo = AdaDestinations 
+                        --                          { 
+                        --                          treasury = (pkh 1) , 
+                        --                          referral=  (pkh 3)
+                        --                          },
+                        --                      mpAdaAmount = 400_000_000
+                        --                    
+                        --                  }
+                        --    void $ Emulator.waitNSlots 10
+                        --    callEndpoint @"mintWithFriend" h5 $ MintParams
+                        --                    {                                    
+                        --                        paymentTo = AdaDestinations 
+                        --                            { 
+                        --                            treasury = (pkh 1) , 
+                        --                            referral=  (pkh 3)
+                        --                            },
+                        --                        mpAdaAmount = 1_000_000_000
+                        --                    }
+                           
+                           
+                           
+                           
+                           
+                           
+                           
+                           
+                           
+                           
 
 
 
