@@ -11,6 +11,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE NoImplicitPrelude   #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 
@@ -54,12 +55,12 @@ import qualified Common.Utils           as U
 
 {-# INLINABLE yacadaPolicy #-}
 yacadaPolicy ::  () -> PlutusV1.ScriptContext -> Bool
-yacadaPolicy _ ctx  =  
-    traceIfFalse "not ok" True
+yacadaPolicy _ ctx  =   traceIfFalse "Not Minted" allOk 
+                        &&  traceIfFalse "Wrong qt of yacadas" qt
        
     where        
         allOk :: Bool
-        allOk = True
+        allOk = U.hashMinted (ownCurrencySymbol ctx) $ flattenValue (minted)
         
         info :: TxInfo
         info = scriptContextTxInfo ctx
@@ -67,36 +68,27 @@ yacadaPolicy _ ctx  =
         minted :: Value
         minted = txInfoMint info
 
-        mintedValue :: [(CurrencySymbol, TokenName, Integer)]
-        mintedValue = flattenValue (minted)
+        txOuts :: [TxOut]
+        txOuts = txInfoOutputs info
+
+        yacadasValue :: Integer
+        yacadasValue = U.mintedQtOfValue (ownCurrencySymbol ctx) (flattenValue (minted)) 0
+
+        qt :: Bool
+        qt = yacadasValue == 1000
+
+
 
         -- ?? Paied amount ?? --
-        -- ?? amount of yacada == minted amount ??
+        
         -- ?? name of yacadaNFT == level given by amount of ADA && quantity == 1
         -- ?? did the treasury account received the ADA
         -- ?? did the referral NFT name correct quantity = 1??
         -- ?? did the referral received ADA and new NFT
-      
-      
-      
-      
-      
-      
---
-       
-       
-       
-       
-       
-       
-       
-        
-      
+                                                     
 
 policy :: Scripts.MintingPolicy
-policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntypedMintingPolicy yacadaPolicy ||])
-                                 
-                                      
+policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntypedMintingPolicy yacadaPolicy ||])                                                                   
 
 -- Yacada Token
 {-# INLINABLE yacadaSymbol #-}

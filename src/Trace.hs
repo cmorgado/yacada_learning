@@ -40,17 +40,27 @@ import           YacadaNFT
 import           YacadaCoin
 
     
-data MintParams = MintParams
+
+
+data MintParams  = MintParams
     {  
         paymentTo :: !AdaDestinations ,
         mpAdaAmount :: !Integer     
-    } deriving (Generic, ToJSON, FromJSON, ToSchema) 
+    } deriving (Generic, ToJSON, FromJSON) 
 
 data AdaDestinations = AdaDestinations
     {
         treasury :: !PaymentPubKeyHash,
         referral :: !PaymentPubKeyHash
-    } deriving (Generic, ToJSON, FromJSON, ToSchema) 
+    } deriving (Generic, ToJSON, FromJSON) 
+
+
+
+
+
+
+
+
 
 
 -- OFF CHAIN    
@@ -72,15 +82,6 @@ getTot (x:xs) y = do
         else
             getTot xs y
 
-hasReferral ::  [(CurrencySymbol, TokenName, Integer)] -> Bool -> Bool
-hasReferral [] hasNft = hasNft
-hasReferral (x:xs) hasNft = do
-    let currSym = fst' x 
-    if currSym == yacadaNFTSymbol
-        then hasReferral [] True
-    else
-        hasReferral xs False    
-
 
 extractLevel :: [(CurrencySymbol, TokenName, Integer)] -> Integer -> Integer
 extractLevel [] v = v
@@ -94,6 +95,7 @@ extractLevel (x:xs) i = do
     else
         extractLevel xs i
 
+
 -- ------------------------------------------------------------------------------------------------------------------
 mintWithFriend :: MintParams -> Contract w FreeSchema Text ()
 mintWithFriend mp = do 
@@ -105,8 +107,8 @@ mintWithFriend mp = do
             vals                =  (_ciTxOutValue <$> (snd <$> Map.toList utxosReferral))            
             referralOk          =  extractLevel (getTot vals []) 0
 
-            yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp) -- coins for customer
-            yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  1 -- NFT for is base referral
+            yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)  -- coins for customer
+            yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  1  -- NFT for is base referral
             yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.upgradeReferralNFTName (referralOk+1) now)  1 -- upgrade for the referral account
             treasuryAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) referralOk 
             referralAdas        = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
@@ -116,15 +118,15 @@ mintWithFriend mp = do
                                     <> Constraints.mustPayToPubKey (referral destinations) (referralAdas <>  yacadaReferralNft)                             
             mint                = Constraints.mustMintValue (yacada <> yacadaNft <> yacadaReferralNft)                              
             tx                  = mint <> payment
-                                                             
-   
-   
+                                                            
        
-        logInfo @String $ printf "--------------------Referral---------------------------\n"
-        logInfo @String $ printf "---------- %s ----------" (show referralAddr)
-        logInfo @String $ printf "---------- level %s ----------" (show referralOk)
-        logInfo @String $ printf "---------- vals %s ----------" $ show (getTot vals [])
-        logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
+        
+        logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
+        
+        --logInfo @String $ printf "---------- %s ----------" (show referralAddr)
+        --logInfo @String $ printf "---------- level %s ----------" (show referralOk)
+        --logInfo @String $ printf "---------- vals %s ----------" $ show (getTot vals [])
+        --logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
 
         --logInfo @String $ printf "| VALUES: '%s' |\n"  (show $ getTot vals  []) --(show $ PlutusTx.AssocMap.keys $ Data.Maybe.fromJust $ PlutusTx.AssocMap.lookup "" (Plutus.V1.Ledger.Value.getValue $ head vals))
         logInfo @String $ printf "------------------------------------------------------"
@@ -142,9 +144,6 @@ endpoints = awaitPromise (mintWithFriend') >> endpoints
   where
     mintWithFriend'    = endpoint @"mintWithFriend" mintWithFriend
 
-
-mkSchemaDefinitions ''FreeSchema
-mkKnownCurrencies []
 
 wallet :: Integer -> Wallet
 wallet = knownWallet
@@ -186,7 +185,7 @@ test= do
                                                    
                                                     }
                         --    void $ Emulator.waitNSlots 10
-                        --    callEndpoint @"mintWithFriend" h4 $ MintParams -- referral is not valid no funds should be sent!
+                        --    callEndpoint @"mintWithFriend" h4 $ MintParams -- 
                         --                  {                                             
                         --                      paymentTo = AdaDestinations 
                         --                          { 

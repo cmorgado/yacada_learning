@@ -1,5 +1,6 @@
 {-# LANGUAGE NumericUnderscores  #-}
-
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
 
 module Common.Utils (
     calculateYacada,
@@ -16,11 +17,16 @@ module Common.Utils (
     hasUTxO,
     mintFlattened,
     valuePaidToAddress,
- 
+    hashMinted,
+    mintedQtOfValues,
+    mintedQtOfValue
+  
+
+
  
 
  ) where
-
+import              Data.Aeson             (ToJSON, FromJSON)
 import              Prelude                (IO, Show (..), String, Semigroup (..),read, Double)
 import              Ledger
 import              PlutusTx.Prelude       hiding (Semigroup(..), unless)
@@ -111,9 +117,49 @@ hasUTxO utxo ctx = any (\i -> txInInfoOutRef i == utxo) $ txInfoInputs (info ctx
 {-# INLINEABLE mintFlattened #-}
 mintFlattened :: ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
 mintFlattened ctx = flattenValue $ txInfoMint (info ctx)
-    
+
+{-# INLINEABLE mintedValues #-}
+mintedValues :: ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
+mintedValues ctx = filter (\(cs,_,_) -> cs  == ownCurrencySymbol ctx) $ mintFlattened ctx
+
+{-# INLINEABLE mintedQtOfValues #-}
+mintedQtOfValues :: ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
+mintedQtOfValues ctx = filter (\(cs,_,_) -> cs  == ownCurrencySymbol ctx) $ mintFlattened ctx
+
+{-# INLINEABLE mintedQtOfValue #-}
+mintedQtOfValue :: CurrencySymbol -> [(CurrencySymbol, TokenName, Integer)] -> Integer -> Integer
+mintedQtOfValue cs [] v = v
+mintedQtOfValue cs (x:xs) i = do
+    let currSym = fst' x 
+    let tokName = snd' x
+    let qt = trd' x  
+    if currSym == cs        
+        then            
+            mintedQtOfValue cs xs $ qt + i
+    else
+        mintedQtOfValue cs xs i
+  
+
+{-# INLINEABLE hashMinted #-}
+hashMinted :: CurrencySymbol ->  [(CurrencySymbol, TokenName, Integer)] -> Bool
+hashMinted cs minted  = any (\(cs,_,_) -> cs == cs) minted
+
+
+
 {-# INLINEABLE valuePaidToAddress #-}
 valuePaidToAddress :: ScriptContext -> Address -> Value
 valuePaidToAddress ctx addr = mconcat
   (fmap txOutValue (filter (\x -> txOutAddress x == addr)
   (txInfoOutputs (info ctx))))    
+
+{-# INLINEABLE fst' #-}
+fst' :: (a,b,c) -> a
+fst' (x,_,_) = x 
+
+{-# INLINEABLE snd' #-}
+snd' :: (a,b,c) -> b
+snd' (_,x,_) = x 
+
+{-# INLINEABLE trd' #-}
+trd' :: (a,b,c) -> c
+trd' (_,_,x) = x 
