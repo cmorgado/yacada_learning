@@ -4,8 +4,7 @@
 
 module Common.Utils (
     calculateYacada,
-    giveReferralNFTName,
-    validateYacadaMint,
+    giveReferralNFTName,    
     fromLevelGetValueForReferral,
     yacadaName,
     treasuryAda,
@@ -19,7 +18,8 @@ module Common.Utils (
     valuePaidToAddress,
     hashMinted,
     mintedQtOfValues,
-    mintedQtOfValue
+    mintedQtOfValue,
+    mintedTokenNames
   
 
 
@@ -49,7 +49,7 @@ calculateYacada ada = case ada of
     600_000_000     ->  3090 -- minting bonus 15%
     800_000_000     ->  4160 -- minting bonus 20%
     1000_000_000    ->  5250 -- minting bonus 15%
-    _       ->  0
+    _               ->  0
        
 {-# INLINABLE treasuryAda #-} -- this calculates the ADA that goes to the treasury wallet based on referral level (or no referral)
 treasuryAda :: Integer -> Integer -> Integer
@@ -69,13 +69,13 @@ fromLevelGetValueForReferral nftName =  read (take 2 nftName)
 
 {-# INLINABLE giveReferralNFTName #-}
 giveReferralNFTName :: Integer -> POSIXTime -> TokenName 
-giveReferralNFTName ada time = case ada of 
-        200_000_000     ->  toTokenName ("05_YACADA_REFERRAL_"++ show(getPOSIXTime time)) -- getPOSIXTime
-        400_000_000     ->  toTokenName ("10_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
-        600_000_000     ->  toTokenName ("15_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
-        800_000_000     ->  toTokenName ("20_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
-        1_000_000_000    ->  toTokenName ("25_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
-        _       ->  toTokenName ("00")
+giveReferralNFTName ada time  
+        | ada == 200_000_000     =  toTokenName ("05_YACADA_REFERRAL_" ++ show(getPOSIXTime time)) -- getPOSIXTime
+        | ada == 400_000_000     =  toTokenName ("10_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
+        | ada == 600_000_000     =  toTokenName ("15_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
+        | ada == 800_000_000     =  toTokenName ("20_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
+        | ada == 1_000_000_000   =  toTokenName ("25_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
+        | otherwise              =  toTokenName ("00")
 
 {-# INLINABLE upgradeReferralNFTName #-}
 upgradeReferralNFTName :: Integer -> POSIXTime -> TokenName
@@ -96,16 +96,6 @@ yacadaName = toTokenName "YACADA_TOKEN"
 toTokenName :: String -> TokenName
 toTokenName tn = TokenName { unTokenName = getLedgerBytes $ fromString $ hex tn }
 
-{-# INLINABLE validateYacadaMint #-}
-validateYacadaMint :: CurrencySymbol -> ScriptContext -> Bool
-validateYacadaMint _ _ = True
--- validateYacadaMint csm ctx = case mintFlattened ctx of
---      [(cs, tn, amt)] -> (cs == csm) &&
---                         (tn == yacadaName) &&
---                         (amt == 200)
---      _               -> False
-
-
 {-# INLINABLE info #-}
 info :: ScriptContext -> TxInfo
 info = scriptContextTxInfo
@@ -125,6 +115,11 @@ mintedValues ctx = filter (\(cs,_,_) -> cs  == ownCurrencySymbol ctx) $ mintFlat
 {-# INLINEABLE mintedQtOfValues #-}
 mintedQtOfValues :: ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
 mintedQtOfValues ctx = filter (\(cs,_,_) -> cs  == ownCurrencySymbol ctx) $ mintFlattened ctx
+
+{-# INLINEABLE mintedTokenNames #-}
+mintedTokenNames :: [(CurrencySymbol, TokenName, Integer)] -> [String] -> [String]
+mintedTokenNames [] tns = tns
+mintedTokenNames (x:xs) tns = mintedTokenNames xs ( tns ++ [toString (snd' x)] )
 
 {-# INLINEABLE mintedQtOfValue #-}
 mintedQtOfValue :: CurrencySymbol -> [(CurrencySymbol, TokenName, Integer)] -> Integer -> Integer

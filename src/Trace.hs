@@ -170,25 +170,18 @@ test= do
                                                 }
                         --    void $ Emulator.waitNSlots 10
                         --    callEndpoint @"mintWithFriend" h4 $ MintParams -- 
-                        --                  {                                             
-                        --                      paymentTo = AdaDestinations 
-                        --                          { 
-                        --                          treasury = (pkh 1) , 
-                        --                          referral=  (pkh 3)
-                        --                          },
-                        --                      mpAdaAmount = 400_000_000
-                        --                    
+                        --                  {     
+                        --                    treasury = (pkh 1) , 
+                        --                    referral=  (pkh 3),     
+                        --                    mpAdaAmount = 400_000_000
                         --                  }
                         --    void $ Emulator.waitNSlots 10
                         --    callEndpoint @"mintWithFriend" h5 $ MintParams
-                        --                    {                                    
-                        --                        paymentTo = AdaDestinations 
-                        --                            { 
-                        --                            treasury = (pkh 1) , 
-                        --                            referral=  (pkh 3)
-                        --                            },
-                        --                        mpAdaAmount = 1_000_000_000
-                        --                    }
+                        --                {                                    
+                        --                    treasury = (pkh 1) , 
+                        --                    referral=  (pkh 3),
+                        --                    mpAdaAmount = 1_000_000_001
+                        --                }
                            
                            
                            

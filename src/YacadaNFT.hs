@@ -84,7 +84,15 @@ yacadaLevelPolicy redeemer' ctx =
         
         qt :: Bool
         qt = yacadasNFTValue == 2                                         
-                         
+
+        x :: [String]
+        x = U.mintedTokenNames  (flattenValue (minted))  []
+      
+        -- verify level minted
+        -- verify sent to payer
+        -- verify level upgrade to referral
+        -- problem .. how to verify referral percentage with reference utxo (v2 upgrade)
+      
       
 
 levelPolicy :: Scripts.MintingPolicy

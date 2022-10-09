@@ -66,45 +66,76 @@ PlutusTx.unstableMakeIsData ''MintParams
 
 {-# INLINABLE yacadaPolicy #-}
 yacadaPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
-yacadaPolicy redeemer' ctx  =   traceIfFalse "Not Minted" allOk 
-                        &&  traceIfFalse "Wrong qt of yacadas" qt
-                        &&  traceIfFalse "payed not ok" w
+yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk 
+                        && traceIfFalse "Wrong qt of yacadas" qt
+                        && traceIfFalse "Wrong amount paied to tresury or referral" adaMoved
+                        -- &&  traceIfFalse "payed not ok" w
        
     where
-        redeemer :: MintParams
-        redeemer = PlutusTx.unsafeFromBuiltinData @MintParams redeemer'        
+        mp :: MintParams
+        mp = PlutusTx.unsafeFromBuiltinData @MintParams redeemer'        
         
+        -- check if YACADA was minted
         allOk :: Bool
         allOk = U.hashMinted (ownCurrencySymbol ctx) $ flattenValue (minted)
-              
+
+        -- get how many yacadas where minted
+        yacadasValue :: Integer
+        yacadasValue = U.mintedQtOfValue (ownCurrencySymbol ctx) (flattenValue (minted)) 0
+
         info :: TxInfo
         info = scriptContextTxInfo ctx
 
+        -- all Value minted
         minted :: Value
         minted = txInfoMint info
 
         txOuts :: [TxOut]
         txOuts = txInfoOutputs info
 
-        yacadasValue :: Integer
-        yacadasValue = U.mintedQtOfValue (ownCurrencySymbol ctx) (flattenValue (minted)) 0
-
+        -- base on thhe ADA paied and distributed to treasury and referral verify the amout of yacada minted
         qt :: Bool
-        qt = yacadasValue == 1000
+        qt = yacadasValue == shouldReceiceYacada
 
         txInputs :: [TxInInfo]
         txInputs = txInfoInputs info
+   
+       
 
-        payed :: Value
-        payed = valueSpent info
+        referralAddr :: Address
+        referralAddr = pubKeyHashAddress (referral mp) Nothing
 
-        w :: Bool
-        w = (mpAdaAmount redeemer) == 200_000_000
+        treasuryAddr :: Address
+        treasuryAddr = pubKeyHashAddress (treasury mp) Nothing
+      
+        -- should get the ADA from TX 
+        shouldReceiceYacada :: Integer
+        shouldReceiceYacada = calculateYacada (treasuryAda + referralAda)            
 
+        -- get the ADA treasury will receive NOTE: on final contract this addr has to be "hardcoded" to prevent hijack of treasury
+        treasuryAda :: Integer
+        treasuryAda = U.mintedQtOfValue adaSymbol (flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
+   
+        -- get the ADA rederral will receive
+        referralAda :: Integer
+        referralAda = U.mintedQtOfValue adaSymbol (flattenValue(U.valuePaidToAddress ctx referralAddr)) 0
+
+        adaMoved :: Bool
+        adaMoved = referralAda + treasuryAda == (mpAdaAmount mp)
+
+        calculateYacada :: Integer -> Integer
+        calculateYacada ada 
+            | ada == 200_000_000     =  1000
+            | ada == 400_000_000     =  2040 -- minting bonus 10%
+            | ada == 600_000_000     =  3090 -- minting bonus 15%
+            | ada == 800_000_000     =  4160 -- minting bonus 20%
+            | ada == 1000_000_000    =  5250 -- minting bonus 15%
+            | otherwise              =  0                                   
+      
         -- ?? Paied amount ?? --
         
         -- ?? name of yacadaNFT == level given by amount of ADA && quantity == 1
-        -- ?? did the treasury account received the ADA
+        
         -- ?? did the referral NFT name correct quantity = 1??
         -- ?? did the referral received ADA and new NFT
                                                      
