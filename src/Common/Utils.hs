@@ -144,6 +144,18 @@ mintedQtOfValue cs (x:xs) i = do
 hashMinted :: CurrencySymbol ->  [(CurrencySymbol, TokenName, Integer)] -> Bool
 hashMinted cs minted  = any (\(cs,_,_) -> cs == cs) minted
 
+{-# INLINEABLE isAddrGettingPaid #-}
+isAddrGettingPaid :: [TxOut] -> Address -> Value -> Bool
+isAddrGettingPaid []     _    _ = False
+isAddrGettingPaid (x:xs) addr val
+  | checkAddr && checkVal = True -- found utxo with reward payout
+  | otherwise             = isAddrGettingPaid xs addr val
+  where
+    checkAddr :: Bool
+    checkAddr = txOutAddress x == addr
+
+    checkVal :: Bool
+    checkVal = txOutValue x == val -- exact reward only
 
 
 {-# INLINEABLE valuePaidToAddress #-}

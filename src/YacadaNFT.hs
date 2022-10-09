@@ -48,14 +48,25 @@ import           Wallet.Emulator.Wallet
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
 import qualified Common.Utils           as U
 
+data MintParams  = MintParams
+    {  
+        treasury :: PaymentPubKeyHash,
+        referral :: PaymentPubKeyHash,
+        mpAdaAmount :: Integer     
+    } 
+PlutusTx.unstableMakeIsData ''MintParams
 
 {-# INLINABLE yacadaLevelPolicy #-}
-yacadaLevelPolicy ::  () -> PlutusV1.ScriptContext -> Bool
-yacadaLevelPolicy _ ctx =   
+yacadaLevelPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
+yacadaLevelPolicy redeemer' ctx =   
     traceIfFalse "Yacada NFT not Minted" allOk
     && traceIfFalse "Yacada NFT quantity" qt
 
     where
+
+        redeemer :: MintParams
+        redeemer = PlutusTx.unsafeFromBuiltinData @MintParams redeemer'    
+        
         allOk :: Bool
         allOk = U.hashMinted (ownCurrencySymbol ctx) $ flattenValue (minted)
  

@@ -26,7 +26,8 @@ import           Ledger                 hiding (mint, singleton)
 import           Ledger.Constraints     as Constraints
 import           Ledger.Value           as Value
 import           Ledger.Ada             as Ada
-import           Plutus.V1.Ledger.Value                
+import           Plutus.V1.Ledger.Value
+import           Plutus.V1.Ledger.Api                
 import           Playground.Contract    (printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema)
 import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
 import           Playground.Types       (KnownCurrency (..))
@@ -38,31 +39,19 @@ import           PlutusTx.AssocMap
 import qualified Common.Utils           as U
 import           YacadaNFT
 import           YacadaCoin
+import           PlutusTx.Builtins
+import           PlutusTx
 
     
 
 
 data MintParams  = MintParams
     {  
-        paymentTo :: !AdaDestinations ,
+        treasury :: !PaymentPubKeyHash,
+        referral :: !PaymentPubKeyHash,
         mpAdaAmount :: !Integer     
     } deriving (Generic, ToJSON, FromJSON) 
-
-data AdaDestinations = AdaDestinations
-    {
-        treasury :: !PaymentPubKeyHash,
-        referral :: !PaymentPubKeyHash
-    } deriving (Generic, ToJSON, FromJSON) 
-
-
-
-
-
-
-
-
-
-
+PlutusTx.unstableMakeIsData ''MintParams 
 -- OFF CHAIN    
 
 fst' :: (a,b,c) -> a
@@ -99,8 +88,7 @@ extractLevel (x:xs) i = do
 -- ------------------------------------------------------------------------------------------------------------------
 mintWithFriend :: MintParams -> Contract w FreeSchema Text ()
 mintWithFriend mp = do 
-        let  destinations       = paymentTo mp
-             referralAddr       = pubKeyHashAddress (referral destinations) Nothing
+        let  referralAddr       = pubKeyHashAddress (referral mp) Nothing
         now                     <- currentTime
         utxosReferral           <- utxosAt referralAddr         
         let
@@ -114,16 +102,16 @@ mintWithFriend mp = do
             referralAdas        = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
             lookups             = Constraints.mintingPolicy policy 
                                     <> Constraints.mintingPolicy levelPolicy 
-            payment             = Constraints.mustPayToPubKey (treasury destinations) treasuryAdas 
-                                    <> Constraints.mustPayToPubKey (referral destinations) (referralAdas <>  yacadaReferralNft)                             
-            mint                = Constraints.mustMintValue (yacada <> yacadaNft <> yacadaReferralNft)                              
+            payment             = Constraints.mustPayToPubKey (treasury mp) treasuryAdas 
+                                    <> Constraints.mustPayToPubKey (referral mp) (referralAdas <>  yacadaReferralNft)                             
+            mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData mp)}) (yacada <> yacadaNft <> yacadaReferralNft)                              
             tx                  = mint <> payment
                                                             
        
         
-        logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
-        
-        --logInfo @String $ printf "---------- %s ----------" (show referralAddr)
+        --logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
+        logInfo @String $ printf "---------- %s ----------" (show  (treasury mp))
+        logInfo @String $ printf "---------- %s ----------" (show referralAddr)
         --logInfo @String $ printf "---------- level %s ----------" (show referralOk)
         --logInfo @String $ printf "---------- vals %s ----------" $ show (getTot vals [])
         --logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
@@ -175,15 +163,11 @@ test= do
                             h6 <- activateContractWallet (wallet 6) endpoints
                             void $ Emulator.waitNSlots 1
                             callEndpoint @"mintWithFriend" h2 $ MintParams
-                                                  {
-                                                    paymentTo = AdaDestinations 
-                                                        { 
-                                                        treasury = (pkh 1), 
-                                                        referral= (pkh 3)
-                                                        },
+                                                {
+                                                    treasury = (pkh 1), 
+                                                    referral= (pkh 3),                                                                                                                      
                                                     mpAdaAmount = 200_000_000
-                                                   
-                                                    }
+                                                }
                         --    void $ Emulator.waitNSlots 10
                         --    callEndpoint @"mintWithFriend" h4 $ MintParams -- 
                         --                  {                                             

@@ -53,15 +53,30 @@ import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
 import qualified Common.Utils           as U
 
 
+
+data MintParams  = MintParams
+    {  
+        treasury :: PaymentPubKeyHash,
+        referral :: PaymentPubKeyHash,
+        mpAdaAmount :: Integer     
+    } 
+PlutusTx.unstableMakeIsData ''MintParams
+
+
+
 {-# INLINABLE yacadaPolicy #-}
-yacadaPolicy ::  () -> PlutusV1.ScriptContext -> Bool
-yacadaPolicy _ ctx  =   traceIfFalse "Not Minted" allOk 
+yacadaPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
+yacadaPolicy redeemer' ctx  =   traceIfFalse "Not Minted" allOk 
                         &&  traceIfFalse "Wrong qt of yacadas" qt
+                        &&  traceIfFalse "payed not ok" w
        
-    where        
+    where
+        redeemer :: MintParams
+        redeemer = PlutusTx.unsafeFromBuiltinData @MintParams redeemer'        
+        
         allOk :: Bool
         allOk = U.hashMinted (ownCurrencySymbol ctx) $ flattenValue (minted)
-        
+              
         info :: TxInfo
         info = scriptContextTxInfo ctx
 
@@ -77,7 +92,14 @@ yacadaPolicy _ ctx  =   traceIfFalse "Not Minted" allOk
         qt :: Bool
         qt = yacadasValue == 1000
 
+        txInputs :: [TxInInfo]
+        txInputs = txInfoInputs info
 
+        payed :: Value
+        payed = valueSpent info
+
+        w :: Bool
+        w = (mpAdaAmount redeemer) == 200_000_000
 
         -- ?? Paied amount ?? --
         
@@ -88,7 +110,9 @@ yacadaPolicy _ ctx  =   traceIfFalse "Not Minted" allOk
                                                      
 
 policy :: Scripts.MintingPolicy
-policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| PSU.V1.mkUntypedMintingPolicy yacadaPolicy ||])                                                                   
+policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| wrap ||])       
+    where
+        wrap = PSU.V1.mkUntypedMintingPolicy yacadaPolicy                                                            
 
 -- Yacada Token
 {-# INLINABLE yacadaSymbol #-}
