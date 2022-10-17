@@ -45,6 +45,10 @@ import qualified Plutus.Script.Utils.V1.Typed.Scripts as PSU.V1
 import qualified Plutus.V1.Ledger.Api                 as PlutusV1
 import qualified Plutus.V1.Ledger.Scripts             as LedgerV1
 import qualified Plutus.V1.Ledger.Contexts            as PlutusV1
+--import qualified Plutus.Script.Utils.V2.Scripts         as PSU.V2
+import qualified Plutus.V2.Ledger.Api            as PlutusV2
+import qualified Plutus.V2.Ledger.Contexts       as PlutusV2
+--import           Plutus.V2.Ledger.Tx
 import           Plutus.V1.Ledger.Bytes (getLedgerBytes)
 import           Plutus.Script.Utils.V1.Scripts  
 import           Prelude                (IO, Show (..), String, Semigroup (..))
@@ -58,6 +62,7 @@ data MintParams  = MintParams
     {  
         treasury :: PaymentPubKeyHash,
         referral :: PaymentPubKeyHash,
+        referralTx :: [TxOutRef],
         mpAdaAmount :: Integer     
     } 
 PlutusTx.unstableMakeIsData ''MintParams
@@ -105,6 +110,7 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
         referralAddr :: Address
         referralAddr = pubKeyHashAddress (referral mp) Nothing
 
+        -- NOTE: on final contract this addr has to be "hardcoded" to prevent hijack of treasury
         treasuryAddr :: Address
         treasuryAddr = pubKeyHashAddress (treasury mp) Nothing
       
@@ -112,7 +118,7 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
         shouldReceiceYacada :: Integer
         shouldReceiceYacada = calculateYacada (treasuryAda + referralAda)            
 
-        -- get the ADA treasury will receive NOTE: on final contract this addr has to be "hardcoded" to prevent hijack of treasury
+        -- get the ADA treasury will receive 
         treasuryAda :: Integer
         treasuryAda = U.mintedQtOfValue adaSymbol (flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
    
@@ -134,6 +140,8 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
       
         -- ?? Paied amount ?? --
         
+        
+
         -- ?? name of yacadaNFT == level given by amount of ADA && quantity == 1
         
         -- ?? did the referral NFT name correct quantity = 1??

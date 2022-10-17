@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveAnyClass      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 
-module Common.Utils (
+module Common.UtilsV2 (
     calculateYacada,
     giveReferralNFTName,    
     fromLevelGetValueForReferral,
@@ -20,24 +20,19 @@ module Common.Utils (
     mintedQtOfValues,
     mintedQtOfValue,
     mintedTokenNames
-  
-
-
- 
 
  ) where
-import              Data.Aeson             (ToJSON, FromJSON)
-import              Prelude                (IO, Show (..), String, Semigroup (..),read, Double)
-import              Ledger
-import              PlutusTx.Prelude       hiding (Semigroup(..), unless)
-import              PlutusTx.Builtins      (divideInteger, multiplyInteger)
-import              Ledger.Value           as Value
+import              Prelude                         (IO, Show (..), String, Semigroup (..),read, Double)
+import              PlutusTx.Prelude                hiding (Semigroup(..), unless)
+import              PlutusTx.Builtins               (divideInteger, multiplyInteger)
 import              Plutus.V1.Ledger.Value
-import              Plutus.V1.Ledger.Time  (POSIXTime (POSIXTime, getPOSIXTime), POSIXTimeRange)
-import              Plutus.V1.Ledger.Bytes (getLedgerBytes)
+import              Plutus.V1.Ledger.Time           (POSIXTime (POSIXTime, getPOSIXTime), POSIXTimeRange)
+import              Plutus.V1.Ledger.Bytes          (getLedgerBytes)        
+import qualified    Plutus.V2.Ledger.Api            as PlutusV2
+import qualified    Plutus.V2.Ledger.Contexts       as PlutusV2
 import              Data.Hex
-import              Data.String            (IsString (..))
-import              GHC.Generics           (Generic)
+import              Data.String                     (IsString (..))
+
 
 
 
@@ -97,24 +92,24 @@ toTokenName :: String -> TokenName
 toTokenName tn = TokenName { unTokenName = getLedgerBytes $ fromString $ hex tn }
 
 {-# INLINABLE info #-}
-info :: ScriptContext -> TxInfo
-info = scriptContextTxInfo
+info :: PlutusV2.ScriptContext -> PlutusV2.TxInfo
+info = PlutusV2.scriptContextTxInfo
 
 {-# INLINABLE hasUTxO #-}
-hasUTxO :: TxOutRef -> ScriptContext -> Bool
-hasUTxO utxo ctx = any (\i -> txInInfoOutRef i == utxo) $ txInfoInputs (info ctx)  
+hasUTxO :: PlutusV2.TxOutRef -> PlutusV2.ScriptContext -> Bool
+hasUTxO utxo ctx = any (\i -> PlutusV2.txInInfoOutRef i == utxo) $ PlutusV2.txInfoInputs (info ctx)  
 
 {-# INLINEABLE mintFlattened #-}
-mintFlattened :: ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
-mintFlattened ctx = flattenValue $ txInfoMint (info ctx)
+mintFlattened :: PlutusV2.ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
+mintFlattened ctx = flattenValue $ PlutusV2.txInfoMint (info ctx)
 
 {-# INLINEABLE mintedValues #-}
-mintedValues :: ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
-mintedValues ctx = filter (\(cs,_,_) -> cs  == ownCurrencySymbol ctx) $ mintFlattened ctx
+mintedValues :: PlutusV2.ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
+mintedValues ctx = filter (\(cs,_,_) -> cs  == PlutusV2.ownCurrencySymbol ctx) $ mintFlattened ctx
 
 {-# INLINEABLE mintedQtOfValues #-}
-mintedQtOfValues :: ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
-mintedQtOfValues ctx = filter (\(cs,_,_) -> cs  == ownCurrencySymbol ctx) $ mintFlattened ctx
+mintedQtOfValues :: PlutusV2.ScriptContext -> [(CurrencySymbol, TokenName, Integer)]
+mintedQtOfValues ctx = filter (\(cs,_,_) -> cs  == PlutusV2.ownCurrencySymbol ctx) $ mintFlattened ctx
 
 {-# INLINEABLE mintedTokenNames #-}
 mintedTokenNames :: [(CurrencySymbol, TokenName, Integer)] -> [String] -> [String]
@@ -140,24 +135,24 @@ hashMinted :: CurrencySymbol ->  [(CurrencySymbol, TokenName, Integer)] -> Bool
 hashMinted csi minted  = any (\(cs,_,_) -> cs == csi) minted
 
 {-# INLINEABLE isAddrGettingPaid #-}
-isAddrGettingPaid :: [TxOut] -> Address -> Value -> Bool
+isAddrGettingPaid :: [PlutusV2.TxOut] -> PlutusV2.Address -> Value -> Bool
 isAddrGettingPaid []     _    _ = False
 isAddrGettingPaid (x:xs) addr val
   | checkAddr && checkVal = True -- found utxo with reward payout
   | otherwise             = isAddrGettingPaid xs addr val
   where
     checkAddr :: Bool
-    checkAddr = txOutAddress x == addr
+    checkAddr = PlutusV2.txOutAddress x == addr
 
     checkVal :: Bool
-    checkVal = txOutValue x == val -- exact reward only
+    checkVal = PlutusV2.txOutValue x == val -- exact reward only
 
 
 {-# INLINEABLE valuePaidToAddress #-}
-valuePaidToAddress :: ScriptContext -> Address -> Value
+valuePaidToAddress :: PlutusV2.ScriptContext -> PlutusV2.Address -> Value
 valuePaidToAddress ctx addr = mconcat
-  (fmap txOutValue (filter (\x -> txOutAddress x == addr)
-  (txInfoOutputs (info ctx))))    
+  (fmap PlutusV2.txOutValue (filter (\x -> PlutusV2.txOutAddress x == addr)
+  (PlutusV2.txInfoOutputs (info ctx))))    
 
 {-# INLINEABLE fst' #-}
 fst' :: (a,b,c) -> a

@@ -12,36 +12,39 @@
 {-# LANGUAGE NumericUnderscores  #-}
 
 module Trace where
-import           Control.Monad          hiding (fmap)
-import           Data.Aeson             (ToJSON, FromJSON)
-import           Data.Text              (Text)
-import           Data.Void              (Void)
-import           Data.Default           (def)
-import           Data.Map               as Map
-import           Data.Maybe
-import           GHC.Generics           (Generic)
-import           Plutus.Contract        as Contract
-import           Plutus.Trace.Emulator  as Emulator  ( activateContractWallet, waitNSlots, runEmulatorTraceIO', callEndpoint, EmulatorConfig(..) )
-import           Ledger                 hiding (mint, singleton)
-import           Ledger.Constraints     as Constraints
-import           Ledger.Value           as Value
-import           Ledger.Ada             as Ada
-import           Plutus.V1.Ledger.Value
-import           Plutus.V1.Ledger.Api                
-import           Playground.Contract    (printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema)
-import           Playground.TH          (mkKnownCurrencies, mkSchemaDefinitions)
-import           Playground.Types       (KnownCurrency (..))
-import           Prelude                (IO, Show (..), String, Semigroup (..))
-import           Text.Printf            (printf)
-import           Wallet.Emulator.Wallet 
-import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
-import           PlutusTx.AssocMap
-import qualified Common.Utils           as U
-import           YacadaNFT
-import           YacadaCoin
-import           PlutusTx.Builtins
-import           PlutusTx
-
+import              Control.Monad                      hiding (fmap)
+import              Data.Aeson                         (ToJSON, FromJSON)
+import              Data.Text                          (Text)
+import              Data.Void                          (Void)
+import              Data.Default                       (def)
+import              Data.Map                           as Map
+--import              Data.List                          as List hiding(++)
+import              Data.Maybe         
+import              GHC.Generics                       (Generic)
+import              Plutus.Contract                    as Contract
+import              Plutus.Trace.Emulator              as Emulator  ( activateContractWallet, waitNSlots, runEmulatorTraceIO', callEndpoint, EmulatorConfig(..) )
+import              Ledger                             hiding (mint, singleton)
+import              Ledger.Constraints                 as Constraints
+import              Ledger.Value                       as Value
+import              Ledger.Ada                         as Ada
+import              Plutus.V1.Ledger.Value
+import              Plutus.V1.Ledger.Api    
+import qualified    Plutus.V2.Ledger.Api                as PlutusV2
+import qualified    Plutus.V2.Ledger.Contexts           as PlutusV2            
+import              Playground.Contract                (printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema)
+import              Playground.TH                      (mkKnownCurrencies, mkSchemaDefinitions)
+import              Playground.Types                   (KnownCurrency (..))
+import              Prelude                            (IO, Show (..), String, Semigroup (..))
+import              Text.Printf                        (printf)
+import              Wallet.Emulator.Wallet 
+import              PlutusTx.Prelude                   hiding (Semigroup(..), unless)
+import              PlutusTx.AssocMap
+import qualified    Common.Utils                       as U
+import              YacadaNFT
+import              YacadaCoin
+import              PlutusTx.Builtins
+import              PlutusTx
+--import qualified    Ledger.Constraints.OnChain.V2  as Cons.V2
     
 
 
@@ -49,7 +52,9 @@ data MintParams  = MintParams
     {  
         treasury :: !PaymentPubKeyHash,
         referral :: !PaymentPubKeyHash,
-        mpAdaAmount :: !Integer     
+        referralTx :: [TxOutRef],   
+        mpAdaAmount :: !Integer
+        
     } deriving (Generic, ToJSON, FromJSON) 
 PlutusTx.unstableMakeIsData ''MintParams 
 -- OFF CHAIN    
@@ -85,15 +90,29 @@ extractLevel (x:xs) i = do
         extractLevel xs i
 
 
+
+getUtxosWithYacadaNFT ::  [(TxOutRef, ChainIndexTxOut)] ->  [TxOutRef] ->  [TxOutRef]
+getUtxosWithYacadaNFT [] o = o
+getUtxosWithYacadaNFT (x:xs) t  = do
+    let ci = snd (x)
+    let ciVal = flattenValue $ _ciTxOutValue ci
+    let filtered = U.hashMinted yacadaNFTSymbol ciVal
+    if filtered == True
+        then
+            getUtxosWithYacadaNFT xs ( [fst x] ++ t)
+    else 
+        getUtxosWithYacadaNFT xs t 
+    
 -- ------------------------------------------------------------------------------------------------------------------
 mintWithFriend :: MintParams -> Contract w FreeSchema Text ()
 mintWithFriend mp = do 
         let  referralAddr       = pubKeyHashAddress (referral mp) Nothing
         now                     <- currentTime
-        utxosReferral           <- utxosAt referralAddr         
+        utxosReferral           <- utxosAt referralAddr        
         let
-            vals                =  (_ciTxOutValue <$> (snd <$> Map.toList utxosReferral))            
-            referralOk          =  extractLevel (getTot vals []) 0
+            vals                = (_ciTxOutValue <$> (snd <$> Map.toList utxosReferral))            
+            referralOk          = extractLevel (getTot vals []) 0
+            refFilterdUtxos     = getUtxosWithYacadaNFT  (Map.toList utxosReferral ) []  -- Filtered UXTOs from referral to send as input references to validate on-chain
 
             yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)  -- coins for customer
             yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  1  -- NFT for is base referral
@@ -104,17 +123,25 @@ mintWithFriend mp = do
                                     <> Constraints.mintingPolicy levelPolicy 
             payment             = Constraints.mustPayToPubKey (treasury mp) treasuryAdas 
                                     <> Constraints.mustPayToPubKey (referral mp) (referralAdas <>  yacadaReferralNft)                             
-            mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData mp)}) (yacada <> yacadaNft <> yacadaReferralNft)                              
+            mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData 
+                                MintParams
+                                {
+                                    treasury = treasury mp,
+                                    referral = referral mp,
+                                    referralTx = refFilterdUtxos,
+                                    mpAdaAmount = mpAdaAmount mp
+                                })}) (yacada <> yacadaNft <> yacadaReferralNft)                              
             tx                  = mint <> payment
                                                             
        
-        
+        logInfo @String $ printf "------------------------------------------------------"
         --logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
-        logInfo @String $ printf "---------- %s ----------" (show  (treasury mp))
-        logInfo @String $ printf "---------- %s ----------" (show referralAddr)
+        --logInfo @String $ printf "---------- %s ----------" (show  (treasury mp))
+        --logInfo @String $ printf "---------- %s ----------" (show referralAddr)
         --logInfo @String $ printf "---------- level %s ----------" (show referralOk)
         --logInfo @String $ printf "---------- vals %s ----------" $ show (getTot vals [])
-        --logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
+        --logInfo @String $ printf "---------- vals %s ----------" $ (show vals )
+        logInfo @String $ printf "| UTXOs: %s |" (show $ getUtxosWithYacadaNFT  (Map.toList utxosReferral ) [])
 
         --logInfo @String $ printf "| VALUES: '%s' |\n"  (show $ getTot vals  []) --(show $ PlutusTx.AssocMap.keys $ Data.Maybe.fromJust $ PlutusTx.AssocMap.lookup "" (Plutus.V1.Ledger.Value.getValue $ head vals))
         logInfo @String $ printf "------------------------------------------------------"
@@ -165,8 +192,10 @@ test= do
                             callEndpoint @"mintWithFriend" h2 $ MintParams
                                                 {
                                                     treasury = (pkh 1), 
-                                                    referral= (pkh 3),                                                                                                                      
+                                                    referral= (pkh 3),
+                                                    referralTx = [],                                                                                                                      
                                                     mpAdaAmount = 200_000_000
+                                                    
                                                 }
                         --    void $ Emulator.waitNSlots 10
                         --    callEndpoint @"mintWithFriend" h4 $ MintParams -- 

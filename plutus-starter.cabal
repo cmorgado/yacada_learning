@@ -44,7 +44,8 @@ library
       Trace,
       YacadaNFT,
       YacadaCoin,
-      Common.Utils
+      Common.Utils,
+      Common.UtilsV2
     build-depends:
       base >= 4.9 && < 5,
       aeson -any,
@@ -62,7 +63,7 @@ library
       plutus-script-utils -any,
       text -any,
       lens -any,
-      cardano-api,
+      cardano-api >= 1.34 ,
       serialise,
       hex
 
