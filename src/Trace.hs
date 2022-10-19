@@ -119,8 +119,8 @@ mintWithFriend mp = do
             yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.upgradeReferralNFTName (referralOk+1) now)  1 -- upgrade for the referral account
             treasuryAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) referralOk 
             referralAdas        = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
-            lookups             = Constraints.mintingPolicy policy 
-                                    <> Constraints.mintingPolicy levelPolicy 
+            lookups             = Constraints.plutusV2MintingPolicy  policy 
+                                    <> Constraints.plutusV2MintingPolicy  levelPolicy 
             payment             = Constraints.mustPayToPubKey (treasury mp) treasuryAdas 
                                     <> Constraints.mustPayToPubKey (referral mp) (referralAdas <>  yacadaReferralNft)                             
             mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData 

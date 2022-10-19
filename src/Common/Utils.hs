@@ -63,6 +63,8 @@ referralAda ada referral = ada - (treasuryAda ada referral)
 referralLevel :: TokenName -> Integer
 referralLevel tn = read (take 2 (toString tn))
 
+
+
 {-# INLINABLE fromLevelGetValueForReferral #-} -- extract from the Referral NFT the current base level
 fromLevelGetValueForReferral :: String -> Integer
 fromLevelGetValueForReferral nftName =  read (take 2 nftName)

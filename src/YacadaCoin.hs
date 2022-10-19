@@ -19,42 +19,37 @@ module YacadaCoin
     (
         yacadaSymbol,
         policy,
-        yacadaWriteSerialisedScriptV1
+        yacadaWriteSerialisedScriptV2
     )
     where
-import           Cardano.Api            (PlutusScriptV1,writeFileTextEnvelope)
-import           Cardano.Api.Shelley    (PlutusScript (..))
+import           Cardano.Api                          (PlutusScriptV2,
+                                                       writeFileTextEnvelope)
+import           Cardano.Api.Shelley                  (PlutusScript (..),
+                                                       ScriptDataJsonSchema (ScriptDataJsonDetailedSchema),
+                                                       fromPlutusData,
+                                                       scriptDataToJson)
 import           Codec.Serialise
-import           Control.Monad          hiding (fmap)
-import           Data.Aeson             (ToJSON, FromJSON)
-import           Data.Text              (Text)
-import           Data.Hex
-import           Data.String            (IsString (..))
-import           Data.Void              (Void)
-import qualified Data.ByteString.Lazy   as LBS
-import qualified Data.ByteString.Short  as SBS
-import qualified PlutusTx
-import           PlutusTx.Builtins.Class
-import           Ledger                 hiding (mint, singleton)
-import           Ledger.Constraints     as Constraints
-import           Ledger.Value           as Value
-import           Ledger.Ada             as Ada
-import           Ledger.Typed.Scripts.Validators
-import qualified Plutus.Script.Utils.V1.Scripts  as Scripts
-import qualified Plutus.Script.Utils.V1.Typed.Scripts as PSU.V1
-import qualified Plutus.V1.Ledger.Api                 as PlutusV1
-import qualified Plutus.V1.Ledger.Scripts             as LedgerV1
+import           Data.Aeson                           as A
+import qualified Data.ByteString.Lazy                 as LBS
+import qualified Data.ByteString.Short                as SBS
+import           Data.Functor                         (void)
+import           Data.String
+import           Ledger.Address
+import qualified Ledger.Typed.Scripts                 as Scripts
+import qualified Plutus.Script.Utils.V2.Typed.Scripts as PSU.V2
+import qualified Plutus.V1.Ledger.Value               as PlutusV1
 import qualified Plutus.V1.Ledger.Contexts            as PlutusV1
---import qualified Plutus.Script.Utils.V2.Scripts         as PSU.V2
-import qualified Plutus.V2.Ledger.Api            as PlutusV2
-import qualified Plutus.V2.Ledger.Contexts       as PlutusV2
---import           Plutus.V2.Ledger.Tx
-import           Plutus.V1.Ledger.Bytes (getLedgerBytes)
-import           Plutus.Script.Utils.V1.Scripts  
-import           Prelude                (IO, Show (..), String, Semigroup (..))
-import           Wallet.Emulator.Wallet
-import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
-import qualified Common.Utils           as U
+import qualified Plutus.Script.Utils.V2.Scripts       as UtilsScriptsV1 (scriptCurrencySymbol)
+import           Plutus.V1.Ledger.Tx                  (TxId (getTxId))
+import qualified Plutus.V2.Ledger.Api                 as PlutusV2
+import qualified Plutus.V2.Ledger.Contexts            as PlutusV2  
+import qualified PlutusTx
+import           PlutusTx.Prelude                     as P hiding
+                                                           (Semigroup (..),
+                                                            unless, (.))
+import           Prelude                              (IO, Semigroup (..),
+                                                       print, (.))        
+import qualified Common.UtilsV2          as U
 
 
 
@@ -62,7 +57,7 @@ data MintParams  = MintParams
     {  
         treasury :: PaymentPubKeyHash,
         referral :: PaymentPubKeyHash,
-        referralTx :: [TxOutRef],
+        referralTx :: [PlutusV2.TxOutRef],
         mpAdaAmount :: Integer     
     } 
 PlutusTx.unstableMakeIsData ''MintParams
@@ -70,7 +65,7 @@ PlutusTx.unstableMakeIsData ''MintParams
 
 
 {-# INLINABLE yacadaPolicy #-}
-yacadaPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
+yacadaPolicy ::  BuiltinData -> PlutusV2.ScriptContext -> Bool
 yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk 
                         && traceIfFalse "Wrong qt of yacadas" qt
                         && traceIfFalse "Wrong amount paied to tresury or referral" adaMoved
@@ -82,30 +77,28 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
         
         -- check if YACADA was minted
         allOk :: Bool
-        allOk = U.hashMinted (ownCurrencySymbol ctx) $ flattenValue (minted)
+        allOk = U.hashMinted (PlutusV2.ownCurrencySymbol ctx) $ PlutusV1.flattenValue (minted)
 
         -- get how many yacadas where minted
         yacadasValue :: Integer
-        yacadasValue = U.mintedQtOfValue (ownCurrencySymbol ctx) (flattenValue (minted)) 0
+        yacadasValue = U.mintedQtOfValue (PlutusV2.ownCurrencySymbol ctx) (PlutusV1.flattenValue (minted)) 0
 
-        info :: TxInfo
-        info = scriptContextTxInfo ctx
+        info :: PlutusV2.TxInfo
+        info = PlutusV2.scriptContextTxInfo ctx
 
         -- all Value minted
-        minted :: Value
-        minted = txInfoMint info
+        minted :: PlutusV1.Value
+        minted = PlutusV2.txInfoMint info
 
-        txOuts :: [TxOut]
-        txOuts = txInfoOutputs info
+        txOuts :: [PlutusV2.TxOut]
+        txOuts = PlutusV2.txInfoOutputs info
+        
+        txInsRefs :: [PlutusV2.TxInInfo]
+        txInsRefs = PlutusV2.txInfoInputs info
 
         -- base on thhe ADA paied and distributed to treasury and referral verify the amout of yacada minted
         qt :: Bool
         qt = yacadasValue == shouldReceiceYacada
-
-        txInputs :: [TxInInfo]
-        txInputs = txInfoInputs info
-   
-       
 
         referralAddr :: Address
         referralAddr = pubKeyHashAddress (referral mp) Nothing
@@ -120,11 +113,11 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
 
         -- get the ADA treasury will receive 
         treasuryAda :: Integer
-        treasuryAda = U.mintedQtOfValue adaSymbol (flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
+        treasuryAda = U.mintedQtOfValue PlutusV2.adaSymbol (PlutusV1.flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
    
         -- get the ADA rederral will receive
         referralAda :: Integer
-        referralAda = U.mintedQtOfValue adaSymbol (flattenValue(U.valuePaidToAddress ctx referralAddr)) 0
+        referralAda = U.mintedQtOfValue PlutusV2.adaSymbol (PlutusV1.flattenValue(U.valuePaidToAddress ctx referralAddr)) 0
 
         adaMoved :: Bool
         adaMoved = referralAda + treasuryAda == (mpAdaAmount mp)
@@ -138,7 +131,7 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
             | ada == 1000_000_000    =  5250 -- minting bonus 15%
             | otherwise              =  0                                   
       
-        -- ?? Paied amount ?? --
+        
         
         
 
@@ -147,29 +140,27 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
         -- ?? did the referral NFT name correct quantity = 1??
         -- ?? did the referral received ADA and new NFT
                                                      
-
 policy :: Scripts.MintingPolicy
-policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| wrap ||])       
-    where
-        wrap = PSU.V1.mkUntypedMintingPolicy yacadaPolicy                                                            
+policy = PlutusV2.mkMintingPolicyScript
+        $$(PlutusTx.compile [||PSU.V2.mkUntypedMintingPolicy yacadaPolicy||])
 
 -- Yacada Token
 {-# INLINABLE yacadaSymbol #-}
-yacadaSymbol :: CurrencySymbol
-yacadaSymbol = Scripts.scriptCurrencySymbol policy
+yacadaSymbol :: PlutusV2.CurrencySymbol
+yacadaSymbol = UtilsScriptsV1.scriptCurrencySymbol policy
 
-yacadaScriptV1 :: PlutusV1.Script
-yacadaScriptV1 = PlutusV1.unMintingPolicyScript policy
+yacadaScriptV2 :: PlutusV2.Script
+yacadaScriptV2 = PlutusV2.unMintingPolicyScript policy
 
-yacadaScriptSBSV1 :: SBS.ShortByteString
-yacadaScriptSBSV1 = SBS.toShort . LBS.toStrict $ serialise yacadaScriptV1
-             
-yacadaSerialisedScriptV1 :: PlutusScript PlutusScriptV1
-yacadaSerialisedScriptV1 = PlutusScriptSerialised yacadaScriptSBSV1
+yacadaScriptSBSV2 :: SBS.ShortByteString
+yacadaScriptSBSV2 = SBS.toShort . LBS.toStrict $ serialise yacadaScriptV2
 
-yacadaWriteSerialisedScriptV1 :: IO ()
-yacadaWriteSerialisedScriptV1 = do
-                        void $ writeFileTextEnvelope "yacada-policy-V1.plutus" Nothing yacadaSerialisedScriptV1
+yacadaSerialisedScriptV2 :: PlutusScript PlutusScriptV2
+yacadaSerialisedScriptV2 = PlutusScriptSerialised yacadaScriptSBSV2
+
+yacadaWriteSerialisedScriptV2 :: IO ()
+yacadaWriteSerialisedScriptV2 = do
+                        void $ writeFileTextEnvelope "yacada-policy-V2.plutus" Nothing yacadaSerialisedScriptV2
 
 
 
