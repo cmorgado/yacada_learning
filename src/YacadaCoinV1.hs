@@ -60,7 +60,7 @@ data MintParams  = MintParams
     {  
         treasury :: PaymentPubKeyHash,
         referral :: PaymentPubKeyHash,
-        referralTx :: [TxOutRef],
+        referralTx :: [TxOut],
         mpAdaAmount :: Integer     
     } 
 PlutusTx.unstableMakeIsData ''MintParams

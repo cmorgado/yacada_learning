@@ -19,7 +19,8 @@ module Common.UtilsV1 (
     hashMinted,
     mintedQtOfValues,
     mintedQtOfValue,
-    mintedTokenNames
+    mintedTokenNames,
+    giveReferralNFTValue
   
 
 
@@ -39,7 +40,15 @@ import              Data.Hex
 import              Data.String            (IsString (..))
 import              GHC.Generics           (Generic)
 
-
+{-# INLINABLE giveReferralNFTValue #-}
+giveReferralNFTValue :: Integer -> Integer
+giveReferralNFTValue ada   
+        | ada == 200_000_000     =  5
+        | ada == 400_000_000     =  10
+        | ada == 600_000_000     =  15
+        | ada == 800_000_000     =  20
+        | ada == 1_000_000_000   =  25
+        | otherwise              =  0
 
 {-# INLINABLE calculateYacada #-} -- calculates the yacada minted from the amount of Ada sent (amount sent is a fix set of values) -- can inprove via custom data?
 calculateYacada :: Integer -> Integer

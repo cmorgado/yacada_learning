@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE NumericUnderscores  #-}
 
 module YacadaNFTV1 
     (
@@ -46,12 +47,14 @@ import           Plutus.Script.Utils.V1.Scripts
 import           Prelude                (IO, Show (..), String, Semigroup (..))
 import           Wallet.Emulator.Wallet
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
+import           PlutusTx.Builtins
 import qualified Common.UtilsV1           as U
 
 data MintParams  = MintParams
     {  
         treasury :: PaymentPubKeyHash,
         referral :: PaymentPubKeyHash,
+        referralTx :: [TxOut],
         mpAdaAmount :: Integer     
     } 
 PlutusTx.unstableMakeIsData ''MintParams
@@ -60,12 +63,14 @@ PlutusTx.unstableMakeIsData ''MintParams
 yacadaLevelPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
 yacadaLevelPolicy redeemer' ctx =   
     traceIfFalse "Yacada NFT not Minted" allOk
-    && traceIfFalse "Yacada NFT quantity" qt
-
+    && traceIfFalse "Yacada New Referal quantity" (qt)
+    && traceIfFalse "referral Has Referral" (length referralUtxos >=1)
+    && traceIfFalse "Referral Ratio " (referralCalculatedAdas == referralAda)  
+    
     where
 
-        redeemer :: MintParams
-        redeemer = PlutusTx.unsafeFromBuiltinData @MintParams redeemer'    
+        mp :: MintParams
+        mp = PlutusTx.unsafeFromBuiltinData @MintParams redeemer'    
         
         allOk :: Bool
         allOk = U.hashMinted (ownCurrencySymbol ctx) $ flattenValue (minted)
@@ -82,17 +87,42 @@ yacadaLevelPolicy redeemer' ctx =
         yacadasNFTValue :: Integer
         yacadasNFTValue = U.mintedQtOfValue (ownCurrencySymbol ctx) (flattenValue (minted)) 0
         
+       
+        -- check if minted is inline with payed amount
         qt :: Bool
-        qt = yacadasNFTValue == 2                                         
+        qt = (yacadasNFTValue -1) == U.giveReferralNFTValue totalAdaInvested     
 
-        x :: [String]
-        x = U.mintedTokenNames  (flattenValue (minted))  []
-      
-        -- verify level minted
-        -- verify sent to payer
-        -- verify level upgrade to referral
-        -- problem .. how to verify referral percentage with reference utxo (v2 upgrade)
-      
+        referralUtxos :: [TxOut]
+        referralUtxos = referralTx mp
+
+        -- gets the percentage for the referral      V2 should use the reference inputs instead of the redeemer   
+        allReferralValues :: [TxOut] -> [(CurrencySymbol, TokenName, Integer)] -> [(CurrencySymbol, TokenName, Integer)]
+        allReferralValues [] val = val
+        allReferralValues (x:xs) val = allReferralValues xs ((flattenValue $ txOutValue x) ++ val)                    
+        referralRatio ::  Integer
+        referralRatio =  U.mintedQtOfValue (ownCurrencySymbol ctx) (allReferralValues referralUtxos [] ) 0
+
+        -- Calculates if the value paid to referral is correct inline with his YACADA_REFERRAL      
+        -- V      
+        referralCalculatedAdas :: Integer
+        referralCalculatedAdas = divideInteger (multiplyInteger 1000 (multiplyInteger totalAdaInvested referralRatio)) 100_000
+
+        referralAddr :: Address
+        referralAddr = pubKeyHashAddress (referral mp) Nothing
+        -- NOTE: on final contract this addr has to be "hardcoded" to prevent hijack of treasury
+        treasuryAddr :: Address
+        treasuryAddr = pubKeyHashAddress (treasury mp) Nothing
+        -- get the ADA treasury will receive 
+        treasuryAda :: Integer
+        treasuryAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
+        -- get the ADA rederral will receive
+        referralAda :: Integer
+        referralAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx referralAddr)) 0                    
+          
+        totalAdaInvested :: Integer
+        totalAdaInvested  = referralAda + treasuryAda
+                                          
+                                                                                   
       
 
 levelPolicy :: Scripts.MintingPolicy

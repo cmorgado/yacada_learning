@@ -49,7 +49,7 @@ data MintParams  = MintParams
     {  
         treasury :: !PaymentPubKeyHash,
         referral :: !PaymentPubKeyHash,
-        referralTx :: [TxOutRef],   
+        referralTx :: [TxOut], 
         mpAdaAmount :: !Integer
         
     } deriving (Generic, ToJSON, FromJSON) 
@@ -86,9 +86,7 @@ extractLevel (x:xs) i = do
     else
         extractLevel xs i
 
-
-
-getUtxosWithYacadaNFT ::  [(TxOutRef, ChainIndexTxOut)] ->  [TxOutRef] ->  [TxOutRef]
+getUtxosWithYacadaNFT ::  [(TxOutRef, ChainIndexTxOut)] ->  [TxOut] ->  [TxOut]
 getUtxosWithYacadaNFT [] o = o
 getUtxosWithYacadaNFT (x:xs) t  = do
     let ci = snd (x)
@@ -96,10 +94,9 @@ getUtxosWithYacadaNFT (x:xs) t  = do
     let filtered = U.hashMinted yacadaNFTSymbol ciVal
     if filtered == True
         then
-            getUtxosWithYacadaNFT xs ( [fst x] ++ t)
+            getUtxosWithYacadaNFT xs ( [(toTxOut ci)] ++ t)
     else 
-        getUtxosWithYacadaNFT xs t 
-    
+        getUtxosWithYacadaNFT xs t     
 -- ------------------------------------------------------------------------------------------------------------------
 mintWithFriend :: MintParams -> Contract w FreeSchema Text ()
 mintWithFriend mp = do 
@@ -112,7 +109,7 @@ mintWithFriend mp = do
             refFilterdUtxos     = getUtxosWithYacadaNFT  (Map.toList utxosReferral ) []  -- Filtered UXTOs from referral to send as input references to validate on-chain
 
             yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)  -- coins for customer
-            yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  1  -- NFT for is base referral
+            yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  (U.giveReferralNFTValue (mpAdaAmount mp))  -- NFT for is base referral
             yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.upgradeReferralNFTName (referralOk+1) now)  1 -- upgrade for the referral account
             treasuryAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) referralOk 
             referralAdas        = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
@@ -168,11 +165,11 @@ test= do
     
     let 
         dist = Map.fromList [ (wallet 1, 
-                                Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 200_000_000 100000000001)  1
+                                Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 200_000_000 100000000001)  5
                                 <> Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
                             , (wallet 2, Ada.lovelaceValueOf 1_000_000_000)
                             , (wallet 3, Ada.lovelaceValueOf 200_000_000 
-                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 600_000_000 100000000002)  1)                                                                      
+                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 600_000_000 100000000002)  15)                                                                      
                             , (wallet 4, Ada.lovelaceValueOf 1_000_000_000)
                             , (wallet 5, Ada.lovelaceValueOf 2_000_000_000)
                             , (wallet 6, Ada.lovelaceValueOf 1_000_000_000)
@@ -194,20 +191,22 @@ test= do
                                                     mpAdaAmount = 200_000_000
                                                     
                                                 }
-                        --    void $ Emulator.waitNSlots 10
-                        --    callEndpoint @"mintWithFriend" h4 $ MintParams -- 
-                        --                  {     
-                        --                    treasury = (pkh 1) , 
-                        --                    referral=  (pkh 3),     
-                        --                    mpAdaAmount = 400_000_000
-                        --                  }
-                        --    void $ Emulator.waitNSlots 10
-                        --    callEndpoint @"mintWithFriend" h5 $ MintParams
-                        --                {                                    
-                        --                    treasury = (pkh 1) , 
-                        --                    referral=  (pkh 3),
-                        --                    mpAdaAmount = 1_000_000_001
-                        --                }
+                            void $ Emulator.waitNSlots 10
+                            callEndpoint @"mintWithFriend" h4 $ MintParams -- 
+                                          {     
+                                            treasury = (pkh 1) , 
+                                            referral=  (pkh 3),  
+                                            referralTx = [],         
+                                            mpAdaAmount = 400_000_000
+                                          }
+                            void $ Emulator.waitNSlots 10
+                            callEndpoint @"mintWithFriend" h5 $ MintParams
+                                        {                                    
+                                            treasury = (pkh 1) , 
+                                            referral=  (pkh 3),
+                                            referralTx = [],      
+                                            mpAdaAmount = 1_000_000_001
+                                        }
                            
                            
                            
