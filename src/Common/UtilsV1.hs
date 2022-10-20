@@ -4,13 +4,11 @@
 
 module Common.UtilsV1 (
     calculateYacada,
-    giveReferralNFTName,    
-    fromLevelGetValueForReferral,
+    giveReferralNFTName,       
     yacadaName,
     treasuryAda,
     referralAda,
     toTokenName,
-    referralLevel,
     upgradeReferralNFTName,
     info,
     hasUTxO,
@@ -68,25 +66,16 @@ treasuryAda ada referral = ( (ada*10000) * (10000 - (referral*100) ) ) `divideIn
 referralAda :: Integer -> Integer -> Integer
 referralAda ada referral = ada - (treasuryAda ada referral)
 
-{-# INLINABLE referralLevel #-}
-referralLevel :: TokenName -> Integer
-referralLevel tn = read (take 2 (toString tn))
-
-
-
-{-# INLINABLE fromLevelGetValueForReferral #-} -- extract from the Referral NFT the current base level
-fromLevelGetValueForReferral :: String -> Integer
-fromLevelGetValueForReferral nftName =  read (take 2 nftName)
 
 {-# INLINABLE giveReferralNFTName #-}
-giveReferralNFTName :: Integer -> POSIXTime -> TokenName 
-giveReferralNFTName ada time  
-        | ada == 200_000_000     =  toTokenName ("05_YACADA_REFERRAL_" ++ show(getPOSIXTime time)) -- getPOSIXTime
-        | ada == 400_000_000     =  toTokenName ("10_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
-        | ada == 600_000_000     =  toTokenName ("15_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
-        | ada == 800_000_000     =  toTokenName ("20_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
-        | ada == 1_000_000_000   =  toTokenName ("25_YACADA_REFERRAL_" ++  show(getPOSIXTime time))
-        | otherwise              =  toTokenName ("00")
+giveReferralNFTName :: TokenName 
+giveReferralNFTName =  toTokenName "YACADA_REFERRAL"
+     
+     
+     
+     
+     
+     
 
 {-# INLINABLE upgradeReferralNFTName #-}
 upgradeReferralNFTName :: Integer -> POSIXTime -> TokenName

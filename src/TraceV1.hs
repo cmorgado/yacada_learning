@@ -62,6 +62,8 @@ fst' (x,_,_) = x
 snd' :: (a,b,c) -> b
 snd' (_,x,_) = x
 
+trd' :: (a,b,c) -> c
+trd' (_,_,x) = x 
 -- 
 getTot :: [Value] ->  [(CurrencySymbol, TokenName, Integer)] ->  [(CurrencySymbol, TokenName, Integer)]
 getTot [] x = x
@@ -78,11 +80,9 @@ extractLevel :: [(CurrencySymbol, TokenName, Integer)] -> Integer -> Integer
 extractLevel [] v = v
 extractLevel (x:xs) i = do
     let currSym = fst' x 
-    let tokName = snd' x
-    let tn = toString tokName
     if currSym == yacadaNFTSymbol        
         then            
-            extractLevel xs $ ( U.referralLevel $ snd' x) + i
+            extractLevel xs $ ( trd' x) + i
     else
         extractLevel xs i
 
@@ -109,7 +109,7 @@ mintWithFriend mp = do
             refFilterdUtxos     = getUtxosWithYacadaNFT  (Map.toList utxosReferral ) []  -- Filtered UXTOs from referral to send as input references to validate on-chain
 
             yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)  -- coins for customer
-            yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName (mpAdaAmount mp) now)  (U.giveReferralNFTValue (mpAdaAmount mp))  -- NFT for is base referral
+            yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)  (U.giveReferralNFTValue (mpAdaAmount mp))  -- NFT for is base referral
             yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.upgradeReferralNFTName (referralOk+1) now)  1 -- upgrade for the referral account
             treasuryAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) referralOk 
             referralAdas        = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
@@ -165,11 +165,11 @@ test= do
     
     let 
         dist = Map.fromList [ (wallet 1, 
-                                Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 200_000_000 100000000001)  5
+                                Value.singleton yacadaNFTSymbol  U.giveReferralNFTName  5
                                 <> Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
                             , (wallet 2, Ada.lovelaceValueOf 1_000_000_000)
                             , (wallet 3, Ada.lovelaceValueOf 200_000_000 
-                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName 600_000_000 100000000002)  15)                                                                      
+                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName )  15)                                                                      
                             , (wallet 4, Ada.lovelaceValueOf 1_000_000_000)
                             , (wallet 5, Ada.lovelaceValueOf 2_000_000_000)
                             , (wallet 6, Ada.lovelaceValueOf 1_000_000_000)
