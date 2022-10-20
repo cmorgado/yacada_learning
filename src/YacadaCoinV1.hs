@@ -72,7 +72,7 @@ yacadaPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
 yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk 
                         && traceIfFalse "Wrong qt of yacadas" qt
                         && traceIfFalse "Wrong amount paied to tresury or referral" adaMoved
-                        -- &&  traceIfFalse "payed not ok" w
+                       
        
     where
         mp :: MintParams
@@ -103,8 +103,6 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
         txInputs :: [TxInInfo]
         txInputs = txInfoInputs info
    
-       
-
         referralAddr :: Address
         referralAddr = pubKeyHashAddress (referral mp) Nothing
 
@@ -134,17 +132,7 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
             | ada == 600_000_000     =  3090 -- minting bonus 15%
             | ada == 800_000_000     =  4160 -- minting bonus 20%
             | ada == 1000_000_000    =  5250 -- minting bonus 15%
-            | otherwise              =  0                                   
-      
-        -- ?? Paied amount ?? --
-        
-        
-
-        -- ?? name of yacadaNFT == level given by amount of ADA && quantity == 1
-        
-        -- ?? did the referral NFT name correct quantity = 1??
-        -- ?? did the referral received ADA and new NFT
-                                                     
+            | otherwise              =  0                                                                                                                  
 
 policy :: Scripts.MintingPolicy
 policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| wrap ||])       

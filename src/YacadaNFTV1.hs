@@ -66,6 +66,7 @@ yacadaLevelPolicy redeemer' ctx =
     && traceIfFalse "Yacada New Referal quantity" (qt)
     && traceIfFalse "referral Has Referral" (length referralUtxos >=1)
     && traceIfFalse "Referral Ratio " (referralCalculatedAdas == referralAda) 
+    && traceIfFalse "Referral Ratio must be <50" (referralRatio < 50) 
     && traceIfFalse "Referral /= paying referral" (allReferencesFromReferrer referralUtxos)
     
     where

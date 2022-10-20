@@ -60,7 +60,7 @@ calculateYacada ada = case ada of
        
 {-# INLINABLE treasuryAda #-} -- this calculates the ADA that goes to the treasury wallet based on referral level (or no referral)
 treasuryAda :: Integer -> Integer -> Integer
-treasuryAda ada referral = ( (ada*10000) * (10000 - (referral*100) ) ) `divideInteger` 100000000
+treasuryAda ada referral = ( (ada*10_000) * (10_000 - (referral*100) ) ) `divideInteger` 100_000_000
     
 {-# INLINABLE referralAda #-} -- this calculates the ADA sent to the referral wallet
 referralAda :: Integer -> Integer -> Integer

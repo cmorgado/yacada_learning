@@ -71,7 +71,7 @@ getTot (x:xs) y = do
         let w = flattenValue  x
         let m = fst' $ head w
         if m == yacadaNFTSymbol
-            then  getTot xs y ++ w
+            then  getTot xs (y ++ w)
         else
             getTot xs y
 
@@ -110,7 +110,7 @@ mintWithFriend mp = do
 
             yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)  -- coins for customer
             yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)  (U.giveReferralNFTValue (mpAdaAmount mp))  -- NFT for is base referral
-            yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.upgradeReferralNFTName (referralOk+1) now)  1 -- upgrade for the referral account
+            yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)   1 -- upgrade for the referral account
             treasuryAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) referralOk 
             referralAdas        = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
             lookups             = Constraints.plutusV1MintingPolicy policy 
@@ -129,13 +129,13 @@ mintWithFriend mp = do
                                                             
        
         logInfo @String $ printf "------------------------------------------------------"
-        --logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
+        logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
         --logInfo @String $ printf "---------- %s ----------" (show  (treasury mp))
         --logInfo @String $ printf "---------- %s ----------" (show referralAddr)
-        --logInfo @String $ printf "---------- level %s ----------" (show referralOk)
+        logInfo @String $ printf "---------- level %s ----------" (show referralOk)
         --logInfo @String $ printf "---------- vals %s ----------" $ show (getTot vals [])
         --logInfo @String $ printf "---------- vals %s ----------" $ (show vals )
-        logInfo @String $ printf "| UTXOs: %s |" (show $ getUtxosWithYacadaNFT  (Map.toList utxosReferral ) [])
+        --logInfo @String $ printf "| UTXOs: %s |" (show $ getUtxosWithYacadaNFT  (Map.toList utxosReferral ) [])
 
         --logInfo @String $ printf "| VALUES: '%s' |\n"  (show $ getTot vals  []) --(show $ PlutusTx.AssocMap.keys $ Data.Maybe.fromJust $ PlutusTx.AssocMap.lookup "" (Plutus.V1.Ledger.Value.getValue $ head vals))
         logInfo @String $ printf "------------------------------------------------------"
@@ -167,12 +167,12 @@ test= do
         dist = Map.fromList [ (wallet 1, 
                                 Value.singleton yacadaNFTSymbol  U.giveReferralNFTName  5
                                 <> Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
-                            , (wallet 2, Ada.lovelaceValueOf 1_000_000_000)
-                            , (wallet 3, Ada.lovelaceValueOf 200_000_000 
-                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName )  15)                                                                      
-                            , (wallet 4, Ada.lovelaceValueOf 1_000_000_000)
+                            , (wallet 2, Ada.lovelaceValueOf 1_000_000_000  
+                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName )  15)
+                            , (wallet 3, Ada.lovelaceValueOf 2_000_000_000)                                                                      
+                            , (wallet 4, Ada.lovelaceValueOf 2_000_000_000)
                             , (wallet 5, Ada.lovelaceValueOf 2_000_000_000)
-                            , (wallet 6, Ada.lovelaceValueOf 1_000_000_000)
+                          
                             ]
         emCfg = EmulatorConfig (Left dist) def 
     runEmulatorTraceIO' def emCfg $ do                                                                                                                                                
@@ -181,12 +181,12 @@ test= do
                             h3 <- activateContractWallet (wallet 3) endpoints -- one referral
                             h4 <- activateContractWallet (wallet 4) endpoints
                             h5 <- activateContractWallet (wallet 5) endpoints
-                            h6 <- activateContractWallet (wallet 6) endpoints
+              
                             void $ Emulator.waitNSlots 1
-                            callEndpoint @"mintWithFriend" h2 $ MintParams
+                            callEndpoint @"mintWithFriend" h3 $ MintParams
                                                 {
                                                     treasury = (pkh 1), 
-                                                    referral= (pkh 3),
+                                                    referral= (pkh 2),
                                                     referralTx = [],                                                                                                                      
                                                     mpAdaAmount = 200_000_000
                                                     
@@ -195,20 +195,19 @@ test= do
                             callEndpoint @"mintWithFriend" h4 $ MintParams -- 
                                           {     
                                             treasury = (pkh 1) , 
-                                            referral=  (pkh 3),  
+                                            referral=  (pkh 2),  
                                             referralTx = [],         
                                             mpAdaAmount = 400_000_000
                                           }
                             void $ Emulator.waitNSlots 10
-                            callEndpoint @"mintWithFriend" h5 $ MintParams
-                                        {                                    
-                                            treasury = (pkh 1) , 
-                                            referral=  (pkh 3),
-                                            referralTx = [],      
-                                            mpAdaAmount = 1_000_000_001
-                                        }
-                           
-                           
+                            callEndpoint @"mintWithFriend" h5 $ MintParams -- 
+                                         {     
+                                             treasury = (pkh 1) , 
+                                             referral=  (pkh 2),  
+                                             referralTx = [],         
+                                             mpAdaAmount = 200_000_001
+                                         }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           
                            
                            
                            
