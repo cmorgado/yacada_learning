@@ -65,7 +65,8 @@ yacadaLevelPolicy redeemer' ctx =
     traceIfFalse "Yacada NFT not Minted" allOk
     && traceIfFalse "Yacada New Referal quantity" (qt)
     && traceIfFalse "referral Has Referral" (length referralUtxos >=1)
-    && traceIfFalse "Referral Ratio " (referralCalculatedAdas == referralAda)  
+    && traceIfFalse "Referral Ratio " (referralCalculatedAdas == referralAda) 
+    && traceIfFalse "Referral /= paying referral" (allReferencesFromReferrer referralUtxos)
     
     where
 
@@ -95,10 +96,14 @@ yacadaLevelPolicy redeemer' ctx =
         referralUtxos :: [TxOut]
         referralUtxos = referralTx mp
 
-        -- gets the percentage for the referral      V2 should use the reference inputs instead of the redeemer   
+        -- gets the percentage for the referral  , if referal is the owner of nft    V2 should use the reference inputs instead of the redeemer   
         allReferralValues :: [TxOut] -> [(CurrencySymbol, TokenName, Integer)] -> [(CurrencySymbol, TokenName, Integer)]
         allReferralValues [] val = val
         allReferralValues (x:xs) val = allReferralValues xs ((flattenValue $ txOutValue x) ++ val)                    
+        
+        allReferencesFromReferrer :: [TxOut] -> Bool 
+        allReferencesFromReferrer m = not $ any (\ x -> (txOutAddress x) /=  referralAddr  ) m
+        
         referralRatio ::  Integer
         referralRatio =  U.mintedQtOfValue (ownCurrencySymbol ctx) (allReferralValues referralUtxos [] ) 0
 
