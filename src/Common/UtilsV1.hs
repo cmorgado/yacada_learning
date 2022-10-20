@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveAnyClass      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 
-module Common.Utils (
+module Common.UtilsV1 (
     calculateYacada,
     giveReferralNFTName,    
     fromLevelGetValueForReferral,

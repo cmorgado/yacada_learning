@@ -15,7 +15,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 
-module YacadaCoin 
+module YacadaCoinV2 
     (
         yacadaSymbol,
         policy,
@@ -94,7 +94,7 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
         txOuts = PlutusV2.txInfoOutputs info
         
         txInsRefs :: [PlutusV2.TxInInfo]
-        txInsRefs = PlutusV2.txInfoInputs info
+        txInsRefs = PlutusV2.txInfoReferenceInputs  info
 
         -- base on thhe ADA paied and distributed to treasury and referral verify the amout of yacada minted
         qt :: Bool

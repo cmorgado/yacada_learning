@@ -11,14 +11,13 @@
 {-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE NumericUnderscores  #-}
 
-module Trace where
+module TraceV1 where
 import              Control.Monad                      hiding (fmap)
 import              Data.Aeson                         (ToJSON, FromJSON)
 import              Data.Text                          (Text)
 import              Data.Void                          (Void)
 import              Data.Default                       (def)
 import              Data.Map                           as Map
---import              Data.List                          as List hiding(++)
 import              Data.Maybe         
 import              GHC.Generics                       (Generic)
 import              Plutus.Contract                    as Contract
@@ -29,8 +28,6 @@ import              Ledger.Value                       as Value
 import              Ledger.Ada                         as Ada
 import              Plutus.V1.Ledger.Value
 import              Plutus.V1.Ledger.Api    
-import qualified    Plutus.V2.Ledger.Api                as PlutusV2
-import qualified    Plutus.V2.Ledger.Contexts           as PlutusV2            
 import              Playground.Contract                (printJson, printSchemas, ensureKnownCurrencies, stage, ToSchema)
 import              Playground.TH                      (mkKnownCurrencies, mkSchemaDefinitions)
 import              Playground.Types                   (KnownCurrency (..))
@@ -39,12 +36,12 @@ import              Text.Printf                        (printf)
 import              Wallet.Emulator.Wallet 
 import              PlutusTx.Prelude                   hiding (Semigroup(..), unless)
 import              PlutusTx.AssocMap
-import qualified    Common.Utils                       as U
-import              YacadaNFT
-import              YacadaCoin
+import qualified    Common.UtilsV1                       as U
+import              YacadaNFTV1
+import              YacadaCoinV1
 import              PlutusTx.Builtins
 import              PlutusTx
---import qualified    Ledger.Constraints.OnChain.V2  as Cons.V2
+
     
 
 
@@ -119,8 +116,8 @@ mintWithFriend mp = do
             yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.upgradeReferralNFTName (referralOk+1) now)  1 -- upgrade for the referral account
             treasuryAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) referralOk 
             referralAdas        = Ada.lovelaceValueOf $ U.referralAda (mpAdaAmount mp) referralOk            
-            lookups             = Constraints.plutusV2MintingPolicy  policy 
-                                    <> Constraints.plutusV2MintingPolicy  levelPolicy 
+            lookups             = Constraints.plutusV1MintingPolicy policy 
+                                    <> Constraints.plutusV1MintingPolicy levelPolicy 
             payment             = Constraints.mustPayToPubKey (treasury mp) treasuryAdas 
                                     <> Constraints.mustPayToPubKey (referral mp) (referralAdas <>  yacadaReferralNft)                             
             mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData 

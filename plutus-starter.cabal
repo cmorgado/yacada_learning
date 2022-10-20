@@ -41,10 +41,13 @@ common lang
 library
     import: lang
     exposed-modules:
-      Trace,
-      YacadaNFT,
-      YacadaCoin,
-      Common.Utils,
+      TraceV1,
+      TraceV2,
+      YacadaNFTV1,
+      YacadaNFTV2,
+      YacadaCoinV1,
+      YacadaCoinV2,
+      Common.UtilsV1,
       Common.UtilsV2
     build-depends:
       base ^>=4.14.1.0,

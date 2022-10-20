@@ -11,7 +11,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
-module YacadaNFT 
+module YacadaNFTV2 
     (
         yacadaNFTSymbol,
         levelPolicy,
