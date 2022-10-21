@@ -1,9 +1,9 @@
 { source-repo-override ? { } }:
 ########################################################################
-# default.nix -- The top-level nix build file for plutus-starter.
+# default.nix -- The top-level nix build file for yacada.
 #
 # This file defines various attributes that are used for building and
-# developing plutus-starter.
+# developing yacada.
 #
 ########################################################################
 
@@ -11,7 +11,7 @@ let
   # Here a some of the various attributes for the variable 'packages':
   #
   # { pkgs
-  #   plutus-starter: {
+  #   yacada: {
   #     haskell: {
   #       project # The Haskell project created by haskell-nix.project
   #       packages # All the packages defined by our project, including dependencies
@@ -25,11 +25,11 @@ let
   # }
   packages = import ./nix { inherit source-repo-override; };
 
-  inherit (packages) pkgs plutus-starter;
-  project = plutus-starter.haskell.project;
+  inherit (packages) pkgs yacada;
+  project = yacada.haskell.project;
 in
 {
-  inherit pkgs plutus-starter;
+  inherit pkgs yacada;
 
   inherit project;
 }
