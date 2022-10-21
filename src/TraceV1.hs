@@ -214,9 +214,7 @@ test:: IO ()
 test= do
     
     let 
-        dist = Map.fromList [ (wallet 1, 
-                                Value.singleton yacadaNFTSymbol  U.giveReferralNFTName  5
-                                <> Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
+        dist = Map.fromList [ (wallet 1, Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
                             , (wallet 2, Ada.lovelaceValueOf 1_000_000_000  
                                 <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName )  15) -- referral
                             , (wallet 3, Ada.lovelaceValueOf 2_000_000_000)                                                                      
@@ -249,14 +247,14 @@ test= do
                                             referralTx = [],         
                                             mpAdaAmount = 400_000_000
                                           }
-                        --    void $ Emulator.waitNSlots 10
-                        --    callEndpoint @"mintWithFriend" h5 $ MintParams -- 
-                        --                 {     
-                        --                     treasury = (pkh 1) , 
-                        --                     referral=  (pkh 2),  
-                        --                     referralTx = [],         
-                        --                     mpAdaAmount = 200_000_001
-                        --                 }
+                            void $ Emulator.waitNSlots 10
+                            callEndpoint @"mintWithFriend" h5 $ MintParams -- 
+                                         {     
+                                             treasury = (pkh 1) , 
+                                             referral=  (pkh 2),  
+                                             referralTx = [],         
+                                             mpAdaAmount = 200_000_000
+                                         }
                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                            
                            
