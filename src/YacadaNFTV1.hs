@@ -61,14 +61,7 @@ PlutusTx.unstableMakeIsData ''MintParams
 
 {-# INLINABLE yacadaLevelPolicy #-}
 yacadaLevelPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
-yacadaLevelPolicy redeemer' ctx =   
-    traceIfFalse "Yacada NFT not Minted" allOk
-    && traceIfFalse "Yacada New Referal quantity" (qt)
-    && traceIfFalse "referral Has Referral" (length referralUtxos >=1)
-    && traceIfFalse "Referral Ratio " (referralCalculatedAdas == referralAda) 
-    && traceIfFalse "Referral Ratio must be <50" (referralRatio < 50) 
-    && traceIfFalse "Referral /= paying referral" (allReferencesFromReferrer referralUtxos)
-    
+yacadaLevelPolicy redeemer' ctx =  validationIsOk    
     where
 
         mp :: MintParams
@@ -118,6 +111,9 @@ yacadaLevelPolicy redeemer' ctx =
         -- NOTE: on final contract this addr has to be "hardcoded" to prevent hijack of treasury
         treasuryAddr :: Address
         treasuryAddr = pubKeyHashAddress (treasury mp) Nothing
+         -- has referral      
+        noReferral :: Bool
+        noReferral = treasuryAddr == referralAddr
         -- get the ADA treasury will receive 
         treasuryAda :: Integer
         treasuryAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
@@ -128,7 +124,19 @@ yacadaLevelPolicy redeemer' ctx =
         totalAdaInvested :: Integer
         totalAdaInvested  = referralAda + treasuryAda
                                           
-                                                                                   
+        validationIsOk :: Bool
+        validationIsOk = do 
+            { let a = traceIfFalse "Yacada NFT not Minted" allOk
+            ; let b = traceIfFalse "Yacada New Referal quantity" (qt)
+            ; let c = traceIfFalse "referral Has Referral" (length referralUtxos >=1)
+            ; let d = traceIfFalse "Referral Ratio " (referralCalculatedAdas == referralAda) 
+            ; let e = traceIfFalse "Referral Ratio must be <50" (referralRatio < 50) 
+            ; let f = traceIfFalse "Referral /= paying referral" (allReferencesFromReferrer referralUtxos)    
+            ;   if noReferral then
+                    traceIfFalse "Validation failed no referral" $ all(==(True::Bool)) [a]
+                else
+                    traceIfFalse "Validation failed" $ all(==(True::Bool)) [a,b,c,d,e,f]
+            }                                                                                   
       
 
 levelPolicy :: Scripts.MintingPolicy

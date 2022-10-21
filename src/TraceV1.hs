@@ -145,13 +145,63 @@ mintWithFriend mp = do
         --logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
         --logInfo @String $ printf "------------------------------------------------------"
 -----------------------------------------------------------------------------------------------------------------------
-type FreeSchema = -- Endpoint "mint" MintParams .\/  
+-- ------------------------------------------------------------------------------------------------------------------
+mintAlone :: MintParams -> Contract w FreeSchema Text ()
+mintAlone mp = do 
+        let  referralAddr       = pubKeyHashAddress (referral mp) Nothing
+        now                     <- currentTime
+        utxosReferral           <- utxosAt referralAddr        
+        let
+            vals                = (_ciTxOutValue <$> (snd <$> Map.toList utxosReferral))                    
+            refFilterdUtxos     = getUtxosWithYacadaNFT  (Map.toList utxosReferral ) []  -- Filtered UXTOs from referral to s
+
+            yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)  -- coins 
+            yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)  (U.giveReferralNFTValue (mpAdaAmount mp))  -- NFT for is base referral
+            yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)   1 -- upgrade for the referral ac
+            treasuryAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) 50 
+            referralAdas        = Ada.lovelaceValueOf $ U.treasuryAda (mpAdaAmount mp) 50            
+            lookups             = Constraints.plutusV1MintingPolicy policy 
+                                    <> Constraints.plutusV1MintingPolicy levelPolicy 
+            payment             = Constraints.mustPayToPubKey (treasury mp) treasuryAdas 
+                                    <> Constraints.mustPayToPubKey (referral mp) (referralAdas <>  yacadaReferralNft)        
+            mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData 
+                                MintParams
+                                {
+                                    treasury = treasury mp,
+                                    referral = referral mp,
+                                    referralTx = refFilterdUtxos,
+                                    mpAdaAmount = mpAdaAmount mp
+                                })}) (yacada <> yacadaNft <> yacadaReferralNft)                              
+            tx                  = mint <> payment
+                                                            
+       
+        logInfo @String $ printf "------------------------------------------------------"
+        -- logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
+        -- logInfo @String $ printf "---------- %s ----------" (show  (treasury mp))
+        -- logInfo @String $ printf "---------- %s ----------" (show referralAddr)        
+        logInfo @String $ printf "---------- treasuryAda %s ----------" (show (U.treasuryAda (mpAdaAmount mp) 50))
+        logInfo @String $ printf "---------- referralAda %s ----------" (show (U.treasuryAda (mpAdaAmount mp) 50))
+        logInfo @String $ printf "---------- yacadas %s ----------" (show ((U.calculateYacada $ mpAdaAmount mp)))
+        -- logInfo @String $ printf "---------- vals %s ----------" $ show (getTot vals [])
+        -- logInfo @String $ printf "---------- vals %s ----------" $ (show vals )
+        -- logInfo @String $ printf "| UTXOs: %s |" (show $ getUtxosWithYacadaNFT  (Map.toList utxosReferral ) [])
+
+        -- logInfo @String $ printf "| VALUES: '%s' |\n"  (show $ getTot vals  []) --(show $ PlutusTx.AssocMap.keys $ Data.May
+        logInfo @String $ printf "------------------------------------------------------"
+        ledgerTx <- submitTxConstraintsWith @Void lookups tx
+        void $ awaitTxConfirmed $ getCardanoTxId ledgerTx
+        logInfo @String $ printf "------------------------------------------------------"
+        --logInfo @String $ printf "| UTXOs: %s |" (show utxosReferral)
+        --logInfo @String $ printf "------------------------------------------------------"
+-----------------------------------------------------------------------------------------------------------------------
+type FreeSchema =  Endpoint "mintAlone" MintParams .\/  
              Endpoint "mintWithFriend" MintParams 
 
 endpoints :: Contract () FreeSchema Text ()
-endpoints = awaitPromise (mintWithFriend') >> endpoints
+endpoints = awaitPromise (mintWithFriend' `select` mintAlone') >> endpoints
   where
-    mintWithFriend'    = endpoint @"mintWithFriend" mintWithFriend
+    mintWithFriend'     = endpoint @"mintWithFriend" mintWithFriend
+    mintAlone'          = endpoint @"mintAlone" mintAlone
 
 
 wallet :: Integer -> Wallet
@@ -168,7 +218,7 @@ test= do
                                 Value.singleton yacadaNFTSymbol  U.giveReferralNFTName  5
                                 <> Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
                             , (wallet 2, Ada.lovelaceValueOf 1_000_000_000  
-                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName )  15)
+                                <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName )  15) -- referral
                             , (wallet 3, Ada.lovelaceValueOf 2_000_000_000)                                                                      
                             , (wallet 4, Ada.lovelaceValueOf 2_000_000_000)
                             , (wallet 5, Ada.lovelaceValueOf 2_000_000_000)
@@ -183,10 +233,10 @@ test= do
                             h5 <- activateContractWallet (wallet 5) endpoints
               
                             void $ Emulator.waitNSlots 1
-                            callEndpoint @"mintWithFriend" h3 $ MintParams
+                            callEndpoint @"mintAlone" h3 $ MintParams
                                                 {
                                                     treasury = (pkh 1), 
-                                                    referral= (pkh 2),
+                                                    referral= (pkh 1),
                                                     referralTx = [],                                                                                                                      
                                                     mpAdaAmount = 200_000_000
                                                     
@@ -199,14 +249,14 @@ test= do
                                             referralTx = [],         
                                             mpAdaAmount = 400_000_000
                                           }
-                            void $ Emulator.waitNSlots 10
-                            callEndpoint @"mintWithFriend" h5 $ MintParams -- 
-                                         {     
-                                             treasury = (pkh 1) , 
-                                             referral=  (pkh 2),  
-                                             referralTx = [],         
-                                             mpAdaAmount = 200_000_001
-                                         }
+                        --    void $ Emulator.waitNSlots 10
+                        --    callEndpoint @"mintWithFriend" h5 $ MintParams -- 
+                        --                 {     
+                        --                     treasury = (pkh 1) , 
+                        --                     referral=  (pkh 2),  
+                        --                     referralTx = [],         
+                        --                     mpAdaAmount = 200_000_001
+                        --                 }
                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                            
                            

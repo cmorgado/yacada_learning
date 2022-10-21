@@ -69,9 +69,9 @@ PlutusTx.unstableMakeIsData ''MintParams
 
 {-# INLINABLE yacadaPolicy #-}
 yacadaPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
-yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk 
-                        && traceIfFalse "Wrong qt of yacadas" qt
-                        && traceIfFalse "Wrong amount paied to tresury or referral" adaMoved
+yacadaPolicy redeemer' ctx  =  validationIsOk
+                        
+                        
                        
        
     where
@@ -109,7 +109,11 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
         -- NOTE: on final contract this addr has to be "hardcoded" to prevent hijack of treasury
         treasuryAddr :: Address
         treasuryAddr = pubKeyHashAddress (treasury mp) Nothing
-      
+
+        -- has referral      
+        noReferral :: Bool
+        noReferral = treasuryAddr == referralAddr
+
         -- should get the ADA from TX 
         shouldReceiceYacada :: Integer
         shouldReceiceYacada = calculateYacada (treasuryAda + referralAda)            
@@ -118,6 +122,10 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
         treasuryAda :: Integer
         treasuryAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
    
+        
+        
+
+
         -- get the ADA rederral will receive
         referralAda :: Integer
         referralAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx referralAddr)) 0
@@ -133,6 +141,18 @@ yacadaPolicy redeemer' ctx  =  traceIfFalse "Not Minted" allOk
             | ada == 800_000_000     =  4160 -- minting bonus 20%
             | ada == 1000_000_000    =  5250 -- minting bonus 15%
             | otherwise              =  0                                                                                                                  
+
+
+        validationIsOk :: Bool
+        validationIsOk = do 
+            { let a = traceIfFalse "Not Minted" allOk 
+            ; let b = traceIfFalse "Wrong qt of yacadas" qt
+            ; let c = traceIfFalse "Wrong amount paied to tresury or referral" adaMoved
+            ;   if noReferral then
+                    traceIfFalse "Validation failed no referral" $ all(==(True::Bool)) [a]
+                else
+                    traceIfFalse "Validation failed" $ all(==(True::Bool)) [a,b,c]
+            }
 
 policy :: Scripts.MintingPolicy
 policy = PlutusV1.mkMintingPolicyScript $$(PlutusTx.compile [|| wrap ||])       
