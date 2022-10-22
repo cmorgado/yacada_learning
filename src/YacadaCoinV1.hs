@@ -26,11 +26,6 @@ import           Cardano.Api            (PlutusScriptV1,writeFileTextEnvelope)
 import           Cardano.Api.Shelley    (PlutusScript (..))
 import           Codec.Serialise
 import           Control.Monad          hiding (fmap)
-import           Data.Aeson             (ToJSON, FromJSON)
-import           Data.Text              (Text)
-import           Data.Hex
-import           Data.String            (IsString (..))
-import           Data.Void              (Void)
 import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.ByteString.Short  as SBS
 import qualified PlutusTx
@@ -45,25 +40,13 @@ import qualified Plutus.Script.Utils.V1.Typed.Scripts as PSU.V1
 import qualified Plutus.V1.Ledger.Api                 as PlutusV1
 import qualified Plutus.V1.Ledger.Scripts             as LedgerV1
 import qualified Plutus.V1.Ledger.Contexts            as PlutusV1
-import qualified Plutus.V2.Ledger.Api            as PlutusV2
-import qualified Plutus.V2.Ledger.Contexts       as PlutusV2
 import           Plutus.V1.Ledger.Bytes (getLedgerBytes)
 import           Plutus.Script.Utils.V1.Scripts  
 import           Prelude                (IO, Show (..), String, Semigroup (..))
-import           Wallet.Emulator.Wallet
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
 import qualified Common.UtilsV1           as U
+import qualified Common.TypesV1           as T
 
-
-
-data MintParams  = MintParams
-    {  
-        treasury :: PaymentPubKeyHash,
-        referral :: PaymentPubKeyHash,
-        referralTx :: [TxOut],
-        mpAdaAmount :: Integer     
-    } 
-PlutusTx.unstableMakeIsData ''MintParams
 
 --treasury :: PlutusV2.PubKeyHash
 --treasury = PlutusV2.PubKeyHash { PlutusV2.getPubKeyHash = createBuiltinByteString [60, 47, 234, 52, 123, 28, 154, 240, 143, 240, 62, 109, 37, 231, 123, 240, 32, 118, 204, 101, 205, 133, 30, 131, 27, 182, 139, 132] }
@@ -71,14 +54,10 @@ PlutusTx.unstableMakeIsData ''MintParams
 
 {-# INLINABLE yacadaPolicy #-}
 yacadaPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
-yacadaPolicy redeemer' ctx  =  validationIsOk
-                        
-                        
-                       
-       
+yacadaPolicy redeemer' ctx  =  validationIsOk       
     where
-        mp :: MintParams
-        mp = PlutusTx.unsafeFromBuiltinData @MintParams redeemer'        
+        mp :: T.MintParams
+        mp = PlutusTx.unsafeFromBuiltinData @T.MintParams redeemer'        
         
         -- check if YACADA was minted
         allOk :: Bool
@@ -103,11 +82,11 @@ yacadaPolicy redeemer' ctx  =  validationIsOk
         txInputs = txInfoInputs $ U.info ctx
    
         referralAddr :: Address
-        referralAddr = pubKeyHashAddress (referral mp) Nothing
+        referralAddr = pubKeyHashAddress (T.referral mp) Nothing
 
         -- NOTE: on final contract this addr has to be "hardcoded" to prevent hijack of treasury
         treasuryAddr :: Address
-        treasuryAddr = pubKeyHashAddress (treasury mp) Nothing
+        treasuryAddr = pubKeyHashAddress (T.treasury mp) Nothing
 
         -- has referral      
         noReferral :: Bool
@@ -118,13 +97,13 @@ yacadaPolicy redeemer' ctx  =  validationIsOk
         shouldReceiceYacada = U.calculateYacada (treasuryAda + referralAda)            
 
         treasuryAda :: Integer
-        treasuryAda = U.sentAda ctx (treasury mp) 
+        treasuryAda = U.sentAda ctx (T.treasury mp) 
         -- get the ADA rederral will receive
         referralAda :: Integer
-        referralAda = U.sentAda ctx (referral mp)          
+        referralAda = U.sentAda ctx (T.referral mp)          
 
         adaMoved :: Bool
-        adaMoved = referralAda + treasuryAda == (mpAdaAmount mp)
+        adaMoved = referralAda + treasuryAda == (T.mpAdaAmount mp)
                                                                                               
         validationIsOk :: Bool
         validationIsOk = do 

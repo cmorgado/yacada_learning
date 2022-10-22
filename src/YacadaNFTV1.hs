@@ -23,11 +23,6 @@ import           Cardano.Api            (PlutusScriptV1,writeFileTextEnvelope)
 import           Cardano.Api.Shelley    (PlutusScript (..))
 import           Codec.Serialise
 import           Control.Monad          hiding (fmap)
-import           Data.Aeson             (ToJSON, FromJSON)
-import           Data.Text              (Text)
-import           Data.Hex
-import           Data.String            (IsString (..))
-import           Data.Void              (Void)
 import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.ByteString.Short  as SBS
 import qualified PlutusTx
@@ -45,27 +40,18 @@ import qualified Plutus.V1.Ledger.Contexts            as PlutusV1
 import           Plutus.V1.Ledger.Bytes (getLedgerBytes)
 import           Plutus.Script.Utils.V1.Scripts  
 import           Prelude                (IO, Show (..), String, Semigroup (..))
-import           Wallet.Emulator.Wallet
 import           PlutusTx.Prelude       hiding (Semigroup(..), unless)
 import           PlutusTx.Builtins
 import qualified Common.UtilsV1           as U
-
-data MintParams  = MintParams
-    {  
-        treasury :: PaymentPubKeyHash,
-        referral :: PaymentPubKeyHash,
-        referralTx :: [TxOut],
-        mpAdaAmount :: Integer     
-    } 
-PlutusTx.unstableMakeIsData ''MintParams
+import qualified Common.TypesV1           as T
 
 {-# INLINABLE yacadaLevelPolicy #-}
 yacadaLevelPolicy ::  BuiltinData -> PlutusV1.ScriptContext -> Bool
 yacadaLevelPolicy redeemer' ctx =  validationIsOk    
     where
 
-        mp :: MintParams
-        mp = PlutusTx.unsafeFromBuiltinData @MintParams redeemer'    
+        mp :: T.MintParams
+        mp = PlutusTx.unsafeFromBuiltinData @T.MintParams redeemer'    
         
         allOk :: Bool
         allOk = U.hashMinted (ownCurrencySymbol ctx) $ flattenValue (minted)
@@ -85,7 +71,7 @@ yacadaLevelPolicy redeemer' ctx =  validationIsOk
         qt = (yacadasNFTValue -1) == U.giveReferralNFTValue totalAdaInvested     
 
         referralUtxos :: [TxOut]
-        referralUtxos = referralTx mp
+        referralUtxos = T.referralTx mp
 
         -- gets the percentage for the referral  , if referal is the owner of nft    V2 should use the reference inputs instead of the redeemer   
         allReferralValues :: [TxOut] -> [(CurrencySymbol, TokenName, Integer)] -> [(CurrencySymbol, TokenName, Integer)]
@@ -104,19 +90,19 @@ yacadaLevelPolicy redeemer' ctx =  validationIsOk
         referralCalculatedAdas = divideInteger (multiplyInteger 1000 (multiplyInteger totalAdaInvested referralRatio)) 100_000
 
         referralAddr :: Address
-        referralAddr = pubKeyHashAddress (referral mp) Nothing
+        referralAddr = pubKeyHashAddress (T.referral mp) Nothing
         -- NOTE: on final contract this addr has to be "hardcoded" to prevent hijack of treasury
         treasuryAddr :: Address
-        treasuryAddr = pubKeyHashAddress (treasury mp) Nothing
+        treasuryAddr = pubKeyHashAddress (T.treasury mp) Nothing
          -- has referral      
         noReferral :: Bool
         noReferral = treasuryAddr == referralAddr
         -- get the ADA treasury will receive 
         treasuryAda :: Integer
-        treasuryAda = U.sentAda ctx (treasury mp) 
+        treasuryAda = U.sentAda ctx (T.treasury mp) 
         -- get the ADA rederral will receive
         referralAda :: Integer
-        referralAda = U.sentAda ctx (referral mp)                  
+        referralAda = U.sentAda ctx (T.referral mp)                  
           
         totalAdaInvested :: Integer
         totalAdaInvested  = referralAda + treasuryAda

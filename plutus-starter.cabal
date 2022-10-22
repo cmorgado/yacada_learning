@@ -48,7 +48,8 @@ library
       YacadaCoinV1,
       YacadaCoinV2,
       Common.UtilsV1,
-      Common.UtilsV2
+      Common.UtilsV2,
+      Common.TypesV1
     build-depends:
       base ^>=4.14.1.0,
       aeson -any,

@@ -19,14 +19,11 @@ module Common.UtilsV1 (
     mintedTokenNames,
     giveReferralNFTValue,
     sentAda,
-    calculateYacada
-  
-
-
- 
-
+    calculateYacada,
+    fst',
+    snd',
+    trd'
  ) where
-import              Data.Aeson             (ToJSON, FromJSON)
 import              Prelude                (IO, Show (..), String, Semigroup (..),read, Double)
 import              Ledger
 import              PlutusTx.Prelude       hiding (Semigroup(..), unless)

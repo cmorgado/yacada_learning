@@ -42,8 +42,6 @@ import              YacadaCoinV1
 import              PlutusTx.Builtins
 import              PlutusTx
 
-    
-
 
 data MintParams  = MintParams
     {  
@@ -55,21 +53,12 @@ data MintParams  = MintParams
     } deriving (Generic, ToJSON, FromJSON) 
 PlutusTx.unstableMakeIsData ''MintParams 
 -- OFF CHAIN    
-
-fst' :: (a,b,c) -> a
-fst' (x,_,_) = x
-
-snd' :: (a,b,c) -> b
-snd' (_,x,_) = x
-
-trd' :: (a,b,c) -> c
-trd' (_,_,x) = x 
 -- 
 getTot :: [Value] ->  [(CurrencySymbol, TokenName, Integer)] ->  [(CurrencySymbol, TokenName, Integer)]
 getTot [] x = x
 getTot (x:xs) y = do   
         let w = flattenValue  x
-        let m = fst' $ head w
+        let m = U.fst' $ head w
         if m == yacadaNFTSymbol
             then  getTot xs (y ++ w)
         else
@@ -79,10 +68,10 @@ getTot (x:xs) y = do
 extractLevel :: [(CurrencySymbol, TokenName, Integer)] -> Integer -> Integer
 extractLevel [] v = v
 extractLevel (x:xs) i = do
-    let currSym = fst' x 
+    let currSym = U.fst' x 
     if currSym == yacadaNFTSymbol        
         then            
-            extractLevel xs $ ( trd' x) + i
+            extractLevel xs $ ( U.trd' x) + i
     else
         extractLevel xs i
 
