@@ -69,15 +69,12 @@ yacadaLevelPolicy redeemer' ctx =  validationIsOk
         
         allOk :: Bool
         allOk = U.hashMinted (ownCurrencySymbol ctx) $ flattenValue (minted)
- 
-        info :: TxInfo
-        info = scriptContextTxInfo ctx
 
         minted :: Value
-        minted = txInfoMint info
+        minted = txInfoMint $ U.info ctx
 
         txOuts :: [TxOut]
-        txOuts = txInfoOutputs info
+        txOuts = txInfoOutputs $ U.info ctx
 
         yacadasNFTValue :: Integer
         yacadasNFTValue = U.mintedQtOfValue (ownCurrencySymbol ctx) (flattenValue (minted)) 0
@@ -116,10 +113,10 @@ yacadaLevelPolicy redeemer' ctx =  validationIsOk
         noReferral = treasuryAddr == referralAddr
         -- get the ADA treasury will receive 
         treasuryAda :: Integer
-        treasuryAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
+        treasuryAda = U.sentAda ctx (treasury mp) 
         -- get the ADA rederral will receive
         referralAda :: Integer
-        referralAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx referralAddr)) 0                    
+        referralAda = U.sentAda ctx (referral mp)                  
           
         totalAdaInvested :: Integer
         totalAdaInvested  = referralAda + treasuryAda

@@ -9,7 +9,6 @@ module Common.UtilsV1 (
     treasuryAda,
     referralAda,
     toTokenName,
-    upgradeReferralNFTName,
     info,
     hasUTxO,
     mintFlattened,
@@ -18,7 +17,9 @@ module Common.UtilsV1 (
     mintedQtOfValues,
     mintedQtOfValue,
     mintedTokenNames,
-    giveReferralNFTValue
+    giveReferralNFTValue,
+    sentAda,
+    calculateYacada
   
 
 
@@ -48,15 +49,17 @@ giveReferralNFTValue ada
         | ada == 1_000_000_000   =  25
         | otherwise              =  0
 
-{-# INLINABLE calculateYacada #-} -- calculates the yacada minted from the amount of Ada sent (amount sent is a fix set of values) -- can inprove via custom data?
+-- calculates the yacada minted from the amount of Ada sent (amount sent is a fix set of values) -- can inprove via custom data?
+{-# INLINABLE calculateYacada #-}
 calculateYacada :: Integer -> Integer
-calculateYacada ada = case ada of 
-    200_000_000     ->  1000
-    400_000_000     ->  2040 -- minting bonus 10%
-    600_000_000     ->  3090 -- minting bonus 15%
-    800_000_000     ->  4160 -- minting bonus 20%
-    1000_000_000    ->  5250 -- minting bonus 15%
-    _               ->  0
+calculateYacada ada 
+    | ada == 200_000_000     =  1000
+    | ada == 400_000_000     =  2040 -- minting bonus 10%
+    | ada == 600_000_000     =  3090 -- minting bonus 15%
+    | ada == 800_000_000     =  4160 -- minting bonus 20%
+    | ada == 1000_000_000    =  5250 -- minting bonus 15%
+    | otherwise              =  0                                             
+
        
 {-# INLINABLE treasuryAda #-} -- this calculates the ADA that goes to the treasury wallet based on referral level (or no referral)
 treasuryAda :: Integer -> Integer -> Integer
@@ -67,28 +70,9 @@ referralAda :: Integer -> Integer -> Integer
 referralAda ada referral = ada - (treasuryAda ada referral)
 
 
-{-# INLINABLE giveReferralNFTName #-}
 giveReferralNFTName :: TokenName 
-giveReferralNFTName =  toTokenName "YACADA_REFERRAL"
-     
-     
-     
-     
-     
-     
-
-{-# INLINABLE upgradeReferralNFTName #-}
-upgradeReferralNFTName :: Integer -> POSIXTime -> TokenName
-upgradeReferralNFTName up time = do
-    if (up<50)
-        then toTokenName ("01_YACADA_REFERRAL_"++ show(getPOSIXTime time)) --
-    else
-        toTokenName ("00_YACADA_REFERRAL_"++ show(getPOSIXTime time))  
-      
-      
-      
-
-{-# INLINABLE yacadaName #-}
+giveReferralNFTName =  toTokenName "YACADA_REFERRAL" 
+    
 yacadaName :: TokenName
 yacadaName = toTokenName "YACADA_TOKEN"
 
@@ -138,6 +122,11 @@ mintedQtOfValue cs (x:xs) i = do
 {-# INLINEABLE hashMinted #-}
 hashMinted :: CurrencySymbol ->  [(CurrencySymbol, TokenName, Integer)] -> Bool
 hashMinted csi minted  = any (\(cs,_,_) -> cs == csi) minted
+
+{-# INLINEABLE sentAda #-}
+sentAda :: ScriptContext -> PaymentPubKeyHash -> Integer
+sentAda ctx phk = mintedQtOfValue adaSymbol (flattenValue(valuePaidToAddress ctx (pubKeyHashAddress phk Nothing))) 0 
+
 
 {-# INLINEABLE isAddrGettingPaid #-}
 isAddrGettingPaid :: [TxOut] -> Address -> Value -> Bool

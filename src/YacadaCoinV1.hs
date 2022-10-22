@@ -88,22 +88,19 @@ yacadaPolicy redeemer' ctx  =  validationIsOk
         yacadasValue :: Integer
         yacadasValue = U.mintedQtOfValue (ownCurrencySymbol ctx) (flattenValue (minted)) 0
 
-        info :: TxInfo
-        info = scriptContextTxInfo ctx
-
         -- all Value minted
         minted :: Value
-        minted = txInfoMint info
+        minted = txInfoMint $ U.info ctx
 
         txOuts :: [TxOut]
-        txOuts = txInfoOutputs info
+        txOuts = txInfoOutputs $ U.info ctx
 
         -- base on thhe ADA paied and distributed to treasury and referral verify the amout of yacada minted
         qt :: Bool
         qt = yacadasValue == shouldReceiceYacada
 
         txInputs :: [TxInInfo]
-        txInputs = txInfoInputs info
+        txInputs = txInfoInputs $ U.info ctx
    
         referralAddr :: Address
         referralAddr = pubKeyHashAddress (referral mp) Nothing
@@ -118,33 +115,17 @@ yacadaPolicy redeemer' ctx  =  validationIsOk
 
         -- should get the ADA from TX 
         shouldReceiceYacada :: Integer
-        shouldReceiceYacada = calculateYacada (treasuryAda + referralAda)            
+        shouldReceiceYacada = U.calculateYacada (treasuryAda + referralAda)            
 
-        -- get the ADA treasury will receive 
         treasuryAda :: Integer
-        treasuryAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx treasuryAddr)) 0
-   
-        
-        
-
-
+        treasuryAda = U.sentAda ctx (treasury mp) 
         -- get the ADA rederral will receive
         referralAda :: Integer
-        referralAda = U.mintedQtOfValue Ada.adaSymbol (flattenValue(U.valuePaidToAddress ctx referralAddr)) 0
+        referralAda = U.sentAda ctx (referral mp)          
 
         adaMoved :: Bool
         adaMoved = referralAda + treasuryAda == (mpAdaAmount mp)
-
-        calculateYacada :: Integer -> Integer
-        calculateYacada ada 
-            | ada == 200_000_000     =  1000
-            | ada == 400_000_000     =  2040 -- minting bonus 10%
-            | ada == 600_000_000     =  3090 -- minting bonus 15%
-            | ada == 800_000_000     =  4160 -- minting bonus 20%
-            | ada == 1000_000_000    =  5250 -- minting bonus 15%
-            | otherwise              =  0                                                                                                                  
-
-
+                                                                                              
         validationIsOk :: Bool
         validationIsOk = do 
             { let a = traceIfFalse "Not Minted" allOk 
