@@ -171,7 +171,7 @@ mintAlone mp = do
         logInfo @String $ printf "---------- treasuryAda %s ----------" (show (U.treasuryAda (mpAdaAmount mp) 50))
         logInfo @String $ printf "---------- referralAda %s ----------" (show (U.treasuryAda (mpAdaAmount mp) 50))
         logInfo @String $ printf "---------- yacadas %s ----------" (show ((U.calculateYacada $ mpAdaAmount mp)))
-        -- logInfo @String $ printf "---------- vals %s ----------" $ show (getTot vals [])
+        logInfo @String $ printf "---------- yacada NFT %s ----------" $ show (U.giveReferralNFTValue (mpAdaAmount mp))
         -- logInfo @String $ printf "---------- vals %s ----------" $ (show vals )
         -- logInfo @String $ printf "| UTXOs: %s |" (show $ getUtxosWithYacadaNFT  (Map.toList utxosReferral ) [])
 
@@ -243,37 +243,4 @@ test= do
                                              referral=  (pkh 2),  
                                              referralTx = [],         
                                              mpAdaAmount = 200_000_000
-                                         }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-                           
-                           
-                           
-                           
-                           
-                           
-                           
-                           
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                                         }                                                                                                                                                                                                                                                                                                                                                                                                                   

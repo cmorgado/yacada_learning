@@ -70,6 +70,10 @@ yacadaLevelPolicy redeemer' ctx =  validationIsOk
         qt :: Bool
         qt = (yacadasNFTValue -1) == U.giveReferralNFTValue totalAdaInvested     
 
+          -- check if minted is inline with payed amount
+        qtNoReferral :: Bool
+        qtNoReferral = (yacadasNFTValue -1) /= 0
+
         referralUtxos :: [TxOut]
         referralUtxos = T.referralTx mp
 
@@ -109,14 +113,15 @@ yacadaLevelPolicy redeemer' ctx =  validationIsOk
                                           
         validationIsOk :: Bool
         validationIsOk = do 
-            { let a = traceIfFalse "Yacada NFT not Minted" allOk
-            ; let b = traceIfFalse "Yacada New Referal quantity" (qt)
+            { let a = traceIfFalse "Referral not Minted" allOk
+            ; let b = traceIfFalse "New Referal quantity" (qt)
             ; let c = traceIfFalse "referral Has Referral" (length referralUtxos >=1)
             ; let d = traceIfFalse "Referral Ratio " (referralCalculatedAdas == referralAda) 
             ; let e = traceIfFalse "Referral Ratio must be <50" (referralRatio < 50) 
             ; let f = traceIfFalse "Referral /= paying referral" (allReferencesFromReferrer referralUtxos)    
+            ; let g = traceIfFalse "Referral NFT bad quantity" (qtNoReferral)
             ;   if noReferral then
-                    traceIfFalse "Validation failed no referral" $ all(==(True::Bool)) [a]
+                    traceIfFalse "Validation failed no referral" $ all(==(True::Bool)) [a,g]
                 else
                     traceIfFalse "Validation failed" $ all(==(True::Bool)) [a,b,c,d,e,f]
             }                                                                                   

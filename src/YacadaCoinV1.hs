@@ -78,6 +78,9 @@ yacadaPolicy redeemer' ctx  =  validationIsOk
         qt :: Bool
         qt = yacadasValue == shouldReceiceYacada
 
+        qtNoReferral :: Bool
+        qtNoReferral = yacadasValue == 0
+
         txInputs :: [TxInInfo]
         txInputs = txInfoInputs $ U.info ctx
    
@@ -108,12 +111,13 @@ yacadaPolicy redeemer' ctx  =  validationIsOk
         validationIsOk :: Bool
         validationIsOk = do 
             { let a = traceIfFalse "Not Minted" allOk 
-            ; let b = traceIfFalse "Wrong qt of yacadas" qt
-            ; let c = traceIfFalse "Wrong amount paied to tresury or referral" adaMoved
+            ; let b = traceIfFalse "Wrong qt of yacadas" (not qtNoReferral)
+            ; let c = traceIfFalse "Wrong qt of yacadas" qt
+            ; let d = traceIfFalse "Wrong amount paied to tresury or referral" adaMoved
             ;   if noReferral then
-                    traceIfFalse "Validation failed no referral" $ all(==(True::Bool)) [a]
+                    traceIfFalse "Validation failed no referral" $ all(==(True::Bool)) [a,b]
                 else
-                    traceIfFalse "Validation failed" $ all(==(True::Bool)) [a,b,c]
+                    traceIfFalse "Validation failed" $ all(==(True::Bool)) [a,c,d]
             }
 
 policy :: Scripts.MintingPolicy
@@ -138,81 +142,5 @@ yacadaSerialisedScriptV1 = PlutusScriptSerialised yacadaScriptSBSV1
 yacadaWriteSerialisedScriptV1 :: IO ()
 yacadaWriteSerialisedScriptV1 = do
                         void $ writeFileTextEnvelope "yacada-policy-V1.plutus" Nothing yacadaSerialisedScriptV1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
