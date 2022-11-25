@@ -41,17 +41,8 @@ import              YacadaNFTV1
 import              YacadaCoinV1
 import              PlutusTx.Builtins
 import              PlutusTx
+import              Common.TypesV1
 
-
-data MintParams  = MintParams
-    {  
-        treasury :: !PaymentPubKeyHash,
-        referral :: !PaymentPubKeyHash,
-        referralTx :: [TxOut], 
-        mpAdaAmount :: !Integer
-        
-    } deriving (Generic, ToJSON, FromJSON) 
-PlutusTx.unstableMakeIsData ''MintParams 
 -- OFF CHAIN    
 -- 
 getTot :: [Value] ->  [(CurrencySymbol, TokenName, Integer)] ->  [(CurrencySymbol, TokenName, Integer)]
@@ -139,7 +130,7 @@ mintAlone :: MintParams -> Contract w FreeSchema Text ()
 mintAlone mp = do 
         let  referralAddr       = pubKeyHashAddress (referral mp) Nothing
         now                     <- currentTime
-        utxosReferral           <- utxosAt referralAddr        
+        utxosReferral           <- utxosAt (pubKeyHashAddress (referral mp) Nothing)        
         let
             vals                = (_ciTxOutValue <$> (snd <$> Map.toList utxosReferral))                    
             refFilterdUtxos     = getUtxosWithYacadaNFT  (Map.toList utxosReferral ) []  -- Filtered UXTOs from referral to s
@@ -199,11 +190,7 @@ wallet = knownWallet
 pkh :: Integer -> PaymentPubKeyHash
 pkh x = mockWalletPaymentPubKeyHash $ wallet x
 
-test:: IO ()
-test= do
-    
-    let 
-        dist = Map.fromList [ (wallet 1, Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
+dist = Map.fromList [ (wallet 1, Ada.lovelaceValueOf 1_000_000_000 ) -- treasury
                             , (wallet 2, Ada.lovelaceValueOf 1_000_000_000  
                                 <> Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName )  15) -- referral
                             , (wallet 3, Ada.lovelaceValueOf 2_000_000_000)                                                                      
@@ -211,7 +198,18 @@ test= do
                             , (wallet 5, Ada.lovelaceValueOf 2_000_000_000)
                           
                             ]
-        emCfg = EmulatorConfig (Left dist) def 
+test:: IO ()
+test= do
+    let 
+        emCfg = EmulatorConfig (Left dist) def
+        mpa   =  MintParams 
+                                          {     
+                                            treasury = (pkh 1) , 
+                                            referral=  (pkh 2),  
+                                            referralTx = [],         
+                                            mpAdaAmount = 400_000_000
+                                          } 
+                                           
     runEmulatorTraceIO' def emCfg $ do                                                                                                                                                
                             h1 <- activateContractWallet (wallet 1) endpoints
                             h2 <- activateContractWallet (wallet 2) endpoints
@@ -229,13 +227,7 @@ test= do
                                                     
                                                 }
                             void $ Emulator.waitNSlots 10
-                            callEndpoint @"mintWithFriend" h4 $ MintParams -- 
-                                          {     
-                                            treasury = (pkh 1) , 
-                                            referral=  (pkh 2),  
-                                            referralTx = [],         
-                                            mpAdaAmount = 400_000_000
-                                          }
+                            callEndpoint @"mintWithFriend" h4 $ mpa
                             void $ Emulator.waitNSlots 10
                             callEndpoint @"mintWithFriend" h5 $ MintParams -- 
                                          {     

@@ -141,6 +141,6 @@ yacadaSerialisedScriptV1 = PlutusScriptSerialised yacadaScriptSBSV1
 
 yacadaWriteSerialisedScriptV1 :: IO ()
 yacadaWriteSerialisedScriptV1 = do
-                        void $ writeFileTextEnvelope "yacada-policy-V1.plutus" Nothing yacadaSerialisedScriptV1
+                        void $ writeFileTextEnvelope "output/yacada-policy-V1.plutus" Nothing yacadaSerialisedScriptV1
 
 

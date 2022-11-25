@@ -147,4 +147,4 @@ yacadaNFTSerialisedScriptV1 = PlutusScriptSerialised yacadaNFTScriptSBSV1
 
 yacadaNFTWriteSerialisedScriptV1 :: IO ()
 yacadaNFTWriteSerialisedScriptV1 = do
-                        void $ writeFileTextEnvelope "yacadaLevelNFT-policy-V1.plutus" Nothing yacadaNFTSerialisedScriptV1
+                        void $ writeFileTextEnvelope "output/yacadaLevelNFT-policy-V1.plutus" Nothing yacadaNFTSerialisedScriptV1
