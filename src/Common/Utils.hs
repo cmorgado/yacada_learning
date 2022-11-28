@@ -1,10 +1,12 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TypeApplications  #-}
 
-module Common.Utils (writeJSON, writeUnit, writeValidator, writePolicy) where
+module Common.Utils (writeJSON, writeUnit, writeValidator, writePolicy, toJsonString) where
 
+import           Data.Aeson as Json ( encode )
 import           Cardano.Api
 import           Cardano.Api.Shelley   (PlutusScript (..))
+import           Cardano.Api.Shelley ( fromPlutusData )
 import           Codec.Serialise       (serialise)
 import           Data.Aeson            (encode)
 import qualified Data.ByteString.Lazy  as LBS
@@ -33,3 +35,10 @@ writeValidator file = writeFileTextEnvelope @(PlutusScript PlutusScriptV1) file 
 
 writePolicy :: FilePath -> Plutus.V1.Ledger.Api.MintingPolicy -> IO (Either (FileError ()) ())
 writePolicy file = writeFileTextEnvelope @(PlutusScript PlutusScriptV1) file Nothing . PlutusScriptSerialised . SBS.toShort . LBS.toStrict . serialise . Plutus.V1.Ledger.Api.unMintingPolicyScript
+
+toJsonString :: PlutusTx.ToData a => a -> LBS.ByteString
+toJsonString =
+  Json.encode
+    . scriptDataToJson ScriptDataJsonDetailedSchema
+    . fromPlutusData
+    . PlutusTx.toData

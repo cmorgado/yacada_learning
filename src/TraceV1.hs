@@ -42,6 +42,7 @@ import              YacadaCoinV1
 import              PlutusTx.Builtins
 import              PlutusTx
 import              Common.TypesV1
+import              Common.Utils
 
 -- OFF CHAIN    
 -- 
@@ -87,7 +88,13 @@ mintWithFriend mp = do
             vals                = (_ciTxOutValue <$> (snd <$> Map.toList utxosReferral))            
             referralOk          = extractLevel (getTot vals []) 0
             refFilterdUtxos     = getUtxosWithYacadaNFT  (Map.toList utxosReferral ) []  -- Filtered UXTOs from referral to send as input references to validate on-chain
-
+            mpa                 =  MintParams
+                                {
+                                    treasury = treasury mp,
+                                    referral = referral mp,
+                                    referralTx = refFilterdUtxos,
+                                    mpAdaAmount = mpAdaAmount mp
+                                }
             yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)  -- coins for customer
             yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)  (U.giveReferralNFTValue (mpAdaAmount mp))  -- NFT for is base referral
             yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)   1 -- upgrade for the referral account
@@ -97,17 +104,12 @@ mintWithFriend mp = do
                                     <> Constraints.plutusV1MintingPolicy levelPolicy 
             payment             = Constraints.mustPayToPubKey (treasury mp) treasuryAdas 
                                     <> Constraints.mustPayToPubKey (referral mp) (referralAdas <>  yacadaReferralNft)                             
-            mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData 
-                                MintParams
-                                {
-                                    treasury = treasury mp,
-                                    referral = referral mp,
-                                    referralTx = refFilterdUtxos,
-                                    mpAdaAmount = mpAdaAmount mp
-                                })}) (yacada <> yacadaNft <> yacadaReferralNft)                              
+            mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData mpa)}) (yacada <> yacadaNft <> yacadaReferralNft)                              
             tx                  = mint <> payment
                                                             
        
+        logInfo @String $ printf "------------------------------------------------------"
+        logInfo @String $ printf "-%s-" (show (toJsonString(mpa)  ))
         logInfo @String $ printf "------------------------------------------------------"
         logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
         --logInfo @String $ printf "---------- %s ----------" (show  (treasury mp))
@@ -134,7 +136,13 @@ mintAlone mp = do
         let
             vals                = (_ciTxOutValue <$> (snd <$> Map.toList utxosReferral))                    
             refFilterdUtxos     = getUtxosWithYacadaNFT  (Map.toList utxosReferral ) []  -- Filtered UXTOs from referral to s
-
+            mpa                 =  MintParams
+                                {
+                                    treasury = treasury mp,
+                                    referral = referral mp,
+                                    referralTx = refFilterdUtxos,
+                                    mpAdaAmount = mpAdaAmount mp
+                                }
             yacada              = Value.singleton yacadaSymbol (U.yacadaName) (U.calculateYacada $ mpAdaAmount mp)  -- coins 
             yacadaNft           = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)  (U.giveReferralNFTValue (mpAdaAmount mp))  -- NFT for is base referral
             yacadaReferralNft   = Value.singleton yacadaNFTSymbol  (U.giveReferralNFTName)   1 -- upgrade for the referral ac
@@ -144,17 +152,12 @@ mintAlone mp = do
                                     <> Constraints.plutusV1MintingPolicy levelPolicy 
             payment             = Constraints.mustPayToPubKey (treasury mp) treasuryAdas 
                                     <> Constraints.mustPayToPubKey (referral mp) (referralAdas <>  yacadaReferralNft)        
-            mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData 
-                                MintParams
-                                {
-                                    treasury = treasury mp,
-                                    referral = referral mp,
-                                    referralTx = refFilterdUtxos,
-                                    mpAdaAmount = mpAdaAmount mp
-                                })}) (yacada <> yacadaNft <> yacadaReferralNft)                              
+            mint                = Constraints.mustMintValueWithRedeemer (Redeemer { getRedeemer = (toBuiltinData mpa)}) (yacada <> yacadaNft <> yacadaReferralNft)                              
             tx                  = mint <> payment
                                                             
        
+        logInfo @String $ printf "------------------------------------------------------"
+        logInfo @String $ printf "-%s-" (show (toJsonString(mpa)  ))
         logInfo @String $ printf "------------------------------------------------------"
         -- logInfo @String $ printf "--------------------Referral---%s ------------------------\n" (show (U.hashMinted yacadaNFTSymbol ( getTot vals [])))
         -- logInfo @String $ printf "---------- %s ----------" (show  (treasury mp))
@@ -217,16 +220,16 @@ test= do
                             h4 <- activateContractWallet (wallet 4) endpoints
                             h5 <- activateContractWallet (wallet 5) endpoints
               
-                            void $ Emulator.waitNSlots 1
-                            callEndpoint @"mintAlone" h3 $ MintParams
-                                                {
-                                                    treasury = (pkh 1), 
-                                                    referral= (pkh 1),
-                                                    referralTx = [],                                                                                                                      
-                                                    mpAdaAmount = 200_000_000
-                                                    
-                                                }
-                            void $ Emulator.waitNSlots 10
+                           --void $ Emulator.waitNSlots 1
+                           --callEndpoint @"mintAlone" h3 $ MintParams
+                           --                    {
+                           --                        treasury = (pkh 1), 
+                           --                        referral= (pkh 1),
+                           --                        referralTx = [],                                                                                                                      
+                           --                        mpAdaAmount = 200_000_000
+                           --                        
+                           --                    }
+                           --void $ Emulator.waitNSlots 10
                             callEndpoint @"mintWithFriend" h4 $ mpa
                             void $ Emulator.waitNSlots 10
                             callEndpoint @"mintWithFriend" h5 $ MintParams -- 
